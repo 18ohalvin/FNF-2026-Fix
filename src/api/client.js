@@ -230,17 +230,18 @@ export async function apiResetOccupancy() {
 }
 
 /**
- * Adjust max capacity (1 - 10,000)
+ * Update global max capacity setting (1 - 10,000)
  */
-export async function apiSetMaxCapacity(capacity) {
+export async function apiUpdateMaxCapacity(capacity) {
   try {
     return await fetchStaffApi('/api/occupancy/capacity', {
       method: 'POST',
-      body: JSON.stringify({ capacity })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ capacity: Number(capacity) })
     })
   } catch (err) {
-    console.warn('[API Client] Set capacity fallback:', err)
-    return { success: true, capacity: Math.max(1, Math.min(10000, capacity)) }
+    console.error('[API Client] Failed to update max capacity:', err)
+    return { success: false, error: err.data?.error || err.message }
   }
 }
 

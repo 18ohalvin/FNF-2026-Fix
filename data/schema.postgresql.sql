@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS scans (
     scanned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. System Settings Table (Max Capacity & Dynamic Parameters)
+-- 4. System Settings Table (Max Capacity, Global Configurations)
 CREATE TABLE IF NOT EXISTS system_settings (
     setting_key VARCHAR(64) PRIMARY KEY,
     setting_value TEXT NOT NULL

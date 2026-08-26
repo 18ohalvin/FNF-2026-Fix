@@ -253,60 +253,6 @@ class DatabaseAdapter {
 
   // --- CRUD: Guests ---
 
-  // --- System Settings & Max Capacity ---
-
-  async getSetting(key, defaultValue = null) {
-    await this.connect()
-    if (this.driverType === 'postgres') {
-      const res = await this.pgPool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', [key])
-      return res.rows[0]?.setting_value ?? defaultValue
-    } else if (this.driverType === 'mysql') {
-      const [rows] = await this.mysqlPool.query('SELECT setting_value FROM system_settings WHERE setting_key = ?', [key])
-      return rows[0]?.setting_value ?? defaultValue
-    } else {
-      const row = this.sqliteDb.prepare('SELECT setting_value FROM system_settings WHERE setting_key = ?').get(key)
-      return row?.setting_value ?? defaultValue
-    }
-  }
-
-  async setSetting(key, value) {
-    await this.connect()
-    const valStr = String(value)
-    if (this.driverType === 'postgres') {
-      await this.pgPool.query(
-        `INSERT INTO system_settings (setting_key, setting_value) VALUES ($1, $2)
-         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2`,
-        [key, valStr]
-      )
-    } else if (this.driverType === 'mysql') {
-      await this.mysqlPool.query(
-        `INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
-        [key, valStr]
-      )
-    } else {
-      this.sqliteDb.prepare(
-        `INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
-         ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value`
-      ).run(key, valStr)
-    }
-    return { success: true, key, value }
-  }
-
-  async getMaxCapacity() {
-    const val = await this.getSetting('max_capacity', '100')
-    const parsed = parseInt(val, 10)
-    return isNaN(parsed) || parsed < 1 ? 100 : Math.min(10000, parsed)
-  }
-
-  async setMaxCapacity(capacity) {
-    const num = Math.max(1, Math.min(10000, parseInt(capacity, 10) || 100))
-    await this.setSetting('max_capacity', num)
-    return num
-  }
-
-  // --- Guest Data Operations ---
-
   async getGuestByPhone(phone) {
     await this.connect()
     const raw = String(phone).replace(/\D/g, '')
@@ -684,6 +630,53 @@ class DatabaseAdapter {
       recentScans,
       eventDayText: dayStr || 'DAY 1 - MONDAY, 02 SEPTEMBER 2026'
     }
+  }
+
+  // --- System Settings: Max Capacity (1 - 10,000) ---
+
+  async getMaxCapacity() {
+    await this.connect()
+    try {
+      if (this.driverType === 'postgres') {
+        const res = await this.pgPool.query(`SELECT setting_value FROM system_settings WHERE setting_key = 'max_capacity' LIMIT 1`)
+        if (res.rows.length > 0) return parseInt(res.rows[0].setting_value, 10) || 100
+      } else if (this.driverType === 'mysql') {
+        const [rows] = await this.mysqlPool.query(`SELECT setting_value FROM system_settings WHERE setting_key = 'max_capacity' LIMIT 1`)
+        if (rows.length > 0) return parseInt(rows[0].setting_value, 10) || 100
+      } else {
+        const row = this.sqliteDb.prepare(`SELECT setting_value FROM system_settings WHERE setting_key = 'max_capacity' LIMIT 1`).get()
+        if (row) return parseInt(row.setting_value, 10) || 100
+      }
+    } catch (e) {
+      console.warn('[Database] Fetch max_capacity fallback:', e.message)
+    }
+    return 100
+  }
+
+  async setMaxCapacity(capacity) {
+    await this.connect()
+    const capNum = Math.max(1, Math.min(10000, parseInt(capacity, 10) || 100))
+    const valStr = String(capNum)
+
+    if (this.driverType === 'postgres') {
+      await this.pgPool.query(
+        `INSERT INTO system_settings (setting_key, setting_value) VALUES ('max_capacity', $1)
+         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1`,
+        [valStr]
+      )
+    } else if (this.driverType === 'mysql') {
+      await this.mysqlPool.query(
+        `INSERT INTO system_settings (setting_key, setting_value) VALUES ('max_capacity', ?)
+         ON DUPLICATE KEY UPDATE setting_value = ?`,
+        [valStr, valStr]
+      )
+    } else {
+      this.sqliteDb.prepare(
+        `INSERT INTO system_settings (setting_key, setting_value) VALUES ('max_capacity', ?)
+         ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value`
+      ).run(valStr)
+    }
+    return capNum
   }
 
   async resetOccupancy() {

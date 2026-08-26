@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS scans (
     scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. System Settings Table (Max Capacity & Dynamic Parameters)
+-- 4. System Settings Table (Max Capacity, Global Configurations)
 CREATE TABLE IF NOT EXISTS system_settings (
     setting_key VARCHAR(64) PRIMARY KEY,
     setting_value TEXT NOT NULL
