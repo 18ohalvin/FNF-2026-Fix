@@ -54,7 +54,7 @@
         </div>
       </div>
 
-      <!-- LIVE OCCUPANCY CONTAINER (Matching Scanner Page specs) -->
+      <!-- LIVE OCCUPANCY CONTAINER (Matching Figma Node 447:615) -->
       <div class="occupancy-section">
         <div class="occupancy-header">
           <span class="occupancy-title">LIVE OCCUPANCY</span>
@@ -62,9 +62,32 @@
           <span class="event-date-text">{{ occupancyData.eventDayText || 'DAY 1 - MONDAY, 02 SEPTEMBER 2026' }}</span>
         </div>
 
-        <div class="occupancy-counter-wrapper">
-          <div class="counter-number">{{ occupancyData.current }}</div>
-          <div class="counter-max">/ {{ occupancyData.capacity }}</div>
+        <div class="occupancy-data-container">
+          <div class="occupancy-counter-wrapper">
+            <div class="counter-number">{{ occupancyData.current }}</div>
+            <div class="counter-max">/ {{ occupancyData.capacity }}</div>
+          </div>
+
+          <!-- Adjust Occupancy Action Button (Figma Node 470:63) -->
+          <button
+            type="button"
+            class="adjust-occupancy-btn"
+            aria-label="Adjust Occupancy Max Capacity"
+            @click="isAdjustModalOpen = true"
+          >
+            <span class="adjust-btn-text">ADJUST OCCUPANCY</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="adjust-icon">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="1" y1="14" x2="7" y2="14"></line>
+              <line x1="9" y1="8" x2="15" y2="8"></line>
+              <line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
+          </button>
         </div>
 
         <div class="progress-track">
@@ -208,12 +231,21 @@
       </div>
     </div>
 
-    <!-- Calendar Date Picker Modal -->
+    <!-- Calendar Filter Modal -->
     <CalendarModal
       :is-open="isCalendarOpen"
       :selected-date="selectedIsoDate"
       @close="isCalendarOpen = false"
       @select="handleDateSelect"
+    />
+
+    <!-- Adjust Max Capacity Modal -->
+    <AdjustOccupancyModal
+      :is-open="isAdjustModalOpen"
+      :current-occupancy="occupancyData.current"
+      :current-capacity="occupancyData.capacity"
+      @close="isAdjustModalOpen = false"
+      @saved="handleSaveCapacity"
     />
   </div>
 </template>
@@ -221,7 +253,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CalendarModal from './CalendarModal.vue'
-import { apiFetchAnalytics } from '../api/client'
+import AdjustOccupancyModal from './AdjustOccupancyModal.vue'
+import { apiFetchAnalytics, apiSetMaxCapacity } from '../api/client'
 
 const emit = defineEmits(['nav-database', 'nav-scanner', 'logout'])
 
@@ -232,6 +265,7 @@ const handleLogout = () => {
 }
 
 const isCalendarOpen = ref(false)
+const isAdjustModalOpen = ref(false)
 const selectedIsoDate = ref('2026-09-02')
 const displayDateText = ref('Day 1 - 02 September 2026')
 const activeTab = ref('totalCheckedIn') // 'totalCheckedIn' | 'upcomingArrivals' | 'vipsCheckedIn' | 'failedScans'
@@ -348,6 +382,21 @@ const handleDateSelect = (title, dayObj) => {
     occupancyData.value.eventDayText = `${dayObj.badge} - ${dayObj.dateText.toUpperCase()}`
   }
   loadAnalytics()
+}
+
+const handleSaveCapacity = async (newCap) => {
+  try {
+    const res = await apiSetMaxCapacity(newCap)
+    if (res && res.capacity) {
+      occupancyData.value.capacity = res.capacity
+    } else {
+      occupancyData.value.capacity = newCap
+    }
+    isAdjustModalOpen.value = false
+    await loadAnalytics()
+  } catch (err) {
+    console.error('[Analytics] Failed to set capacity:', err)
+  }
 }
 
 let pollInterval = null
@@ -524,10 +573,51 @@ onUnmounted(() => {
   color: #000000;
 }
 
+.occupancy-data-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
 .occupancy-counter-wrapper {
   display: flex;
   align-items: baseline;
   gap: 12px;
+}
+
+.adjust-occupancy-btn {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid #000000;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.adjust-occupancy-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.adjust-btn-text {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000000;
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.adjust-icon {
+  flex-shrink: 0;
+  color: #000000;
 }
 
 .counter-number {

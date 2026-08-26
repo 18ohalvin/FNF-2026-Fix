@@ -122,6 +122,11 @@ class DatabaseAdapter {
         scanned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(64) PRIMARY KEY,
+        setting_value TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_pg_res_phone ON ticket_reservations(guest_phone);
       CREATE INDEX IF NOT EXISTS idx_pg_res_access_id ON ticket_reservations(access_id);
       CREATE INDEX IF NOT EXISTS idx_pg_scans_phone ON scans(guest_phone);
@@ -170,6 +175,12 @@ class DatabaseAdapter {
         INDEX idx_scan_access (access_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
+    await this.mysqlPool.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(64) PRIMARY KEY,
+        setting_value TEXT NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
   }
 
   async initSqliteSchema() {
@@ -207,6 +218,11 @@ class DatabaseAdapter {
         scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_sqlite_guests_phone ON guests(phone);
       CREATE INDEX IF NOT EXISTS idx_sqlite_reservations_phone ON ticket_reservations(guest_phone);
       CREATE INDEX IF NOT EXISTS idx_sqlite_reservations_access_id ON ticket_reservations(access_id);
@@ -236,6 +252,60 @@ class DatabaseAdapter {
   }
 
   // --- CRUD: Guests ---
+
+  // --- System Settings & Max Capacity ---
+
+  async getSetting(key, defaultValue = null) {
+    await this.connect()
+    if (this.driverType === 'postgres') {
+      const res = await this.pgPool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', [key])
+      return res.rows[0]?.setting_value ?? defaultValue
+    } else if (this.driverType === 'mysql') {
+      const [rows] = await this.mysqlPool.query('SELECT setting_value FROM system_settings WHERE setting_key = ?', [key])
+      return rows[0]?.setting_value ?? defaultValue
+    } else {
+      const row = this.sqliteDb.prepare('SELECT setting_value FROM system_settings WHERE setting_key = ?').get(key)
+      return row?.setting_value ?? defaultValue
+    }
+  }
+
+  async setSetting(key, value) {
+    await this.connect()
+    const valStr = String(value)
+    if (this.driverType === 'postgres') {
+      await this.pgPool.query(
+        `INSERT INTO system_settings (setting_key, setting_value) VALUES ($1, $2)
+         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2`,
+        [key, valStr]
+      )
+    } else if (this.driverType === 'mysql') {
+      await this.mysqlPool.query(
+        `INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+        [key, valStr]
+      )
+    } else {
+      this.sqliteDb.prepare(
+        `INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
+         ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value`
+      ).run(key, valStr)
+    }
+    return { success: true, key, value }
+  }
+
+  async getMaxCapacity() {
+    const val = await this.getSetting('max_capacity', '100')
+    const parsed = parseInt(val, 10)
+    return isNaN(parsed) || parsed < 1 ? 100 : Math.min(10000, parsed)
+  }
+
+  async setMaxCapacity(capacity) {
+    const num = Math.max(1, Math.min(10000, parseInt(capacity, 10) || 100))
+    await this.setSetting('max_capacity', num)
+    return num
+  }
+
+  // --- Guest Data Operations ---
 
   async getGuestByPhone(phone) {
     await this.connect()
@@ -604,9 +674,11 @@ class DatabaseAdapter {
       recentScans = this.sqliteDb.prepare("SELECT * FROM scans ORDER BY rowid DESC LIMIT 50").all()
     }
 
+    const capacity = await this.getMaxCapacity()
+
     return {
       current,
-      capacity: 100,
+      capacity,
       checkedInToday,
       checkedOutToday,
       recentScans,
@@ -755,10 +827,12 @@ class DatabaseAdapter {
       failedScans: timeSlots.map((slot, idx) => ({ slot, count: idx === 6 ? failedScans : 0 }))
     }
 
+    const capacity = await this.getMaxCapacity()
+
     return {
       occupancy: {
         current: currentOccupancy,
-        capacity: 100,
+        capacity,
         eventDayText: `DAY ${dayNum} - 2026`
       },
       summary: {

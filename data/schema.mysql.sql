@@ -40,7 +40,13 @@ CREATE TABLE IF NOT EXISTS scans (
     scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Optimized Indexes
+-- 4. System Settings Table (Max Capacity & Dynamic Parameters)
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(64) PRIMARY KEY,
+    setting_value TEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. Optimized Indexes
 CREATE INDEX idx_reservations_phone ON ticket_reservations(guest_phone);
 CREATE INDEX idx_reservations_access_id ON ticket_reservations(access_id);
 CREATE INDEX idx_scans_phone ON scans(guest_phone);

@@ -40,7 +40,13 @@ CREATE TABLE IF NOT EXISTS scans (
     scanned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Optimized Indexes for High-Traffic Gate Scanners
+-- 4. System Settings Table (Max Capacity & Dynamic Parameters)
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(64) PRIMARY KEY,
+    setting_value TEXT NOT NULL
+);
+
+-- 5. Optimized Indexes for High-Traffic Gate Scanners
 CREATE INDEX IF NOT EXISTS idx_guests_phone ON guests(phone);
 CREATE INDEX IF NOT EXISTS idx_reservations_phone ON ticket_reservations(guest_phone);
 CREATE INDEX IF NOT EXISTS idx_reservations_access_id ON ticket_reservations(access_id);

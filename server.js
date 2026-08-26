@@ -278,13 +278,14 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
       })
 
       const liveOccupancy = await db.getLiveOccupancy()
+      const maxCapacity = await db.getMaxCapacity()
       return res.json({
         success: false,
         status: 'INVALID',
         message: "Ticket not recognized for today's event.",
         ticketCode: cleanedCode,
         liveOccupancy,
-        maxCapacity: 100
+        maxCapacity
       })
     }
 
@@ -307,6 +308,7 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
       })
 
       const liveOccupancy = await db.getLiveOccupancy()
+      const maxCapacity = await db.getMaxCapacity()
       return res.json({
         success: false,
         status: 'INVALID',
@@ -319,7 +321,7 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
           role: record.role || 'VIP GUEST'
         },
         liveOccupancy,
-        maxCapacity: 100
+        maxCapacity
       })
     }
 
@@ -373,9 +375,9 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
     })
 
     const liveOccupancy = await db.getLiveOccupancy()
-
+    const maxCapacity = await db.getMaxCapacity()
     return res.json({
-      success: status === 'GRANTED',
+      success: true,
       status,
       mode,
       message,
@@ -387,7 +389,7 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
         role: record.role || 'VIP GUEST'
       },
       liveOccupancy,
-      maxCapacity: 100
+      maxCapacity
     })
   } catch (err) {
     console.error('[API Scan Error]', err)
@@ -410,10 +412,30 @@ app.get('/api/occupancy', requireStaffAuth, async (req, res) => {
 app.post('/api/occupancy/reset', requireStaffAuth, async (req, res) => {
   try {
     await db.resetOccupancy()
-    res.json({ success: true, occupancy: 0, capacity: 100 })
+    const capacity = await db.getMaxCapacity()
+    res.json({ success: true, occupancy: 0, capacity })
   } catch (err) {
     console.error('[API Reset Error]', err)
     res.status(500).json({ error: 'Failed to reset occupancy' })
+  }
+})
+
+// 7b. Adjust Max Capacity (1 - 10,000)
+app.post('/api/occupancy/capacity', requireStaffAuth, async (req, res) => {
+  try {
+    const { capacity } = req.body
+    if (capacity === undefined || capacity === null) {
+      return res.status(400).json({ error: 'Capacity is required' })
+    }
+    const parsed = parseInt(capacity, 10)
+    if (isNaN(parsed) || parsed < 1 || parsed > 10000) {
+      return res.status(400).json({ error: 'Capacity must be between 1 and 10,000' })
+    }
+    const updated = await db.setMaxCapacity(parsed)
+    res.json({ success: true, capacity: updated })
+  } catch (err) {
+    console.error('[API Capacity Error]', err)
+    res.status(500).json({ error: 'Failed to update capacity' })
   }
 })
 
