@@ -341,10 +341,13 @@ const executeScan = async (code) => {
   isProcessingScan.value = true
 
   try {
+    const dayNum = activeDayId.value ? String(activeDayId.value).replace(/\D/g, '') || '1' : '1'
+    const formattedDay = `Day ${dayNum}`
+
     const res = await apiProcessScan({
       ticketCode: code,
       mode: scanMode.value,
-      currentDay: activeDayId.value
+      currentDay: formattedDay
     })
 
     isProcessingScan.value = false

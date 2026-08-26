@@ -27,7 +27,17 @@ app.get('/api/health', (req, res) => {
   })
 })
 
-// 2. Check Phone Number Endpoint
+// Helper: Generate short 5-6 character alphanumeric Access ID (excluding ambiguous 0, O, 1, I, L)
+function generateShortAccessId(length = 6) {
+  const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
+  let code = ''
+  for (let i = 0; i < length; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
+// 2. Check Phone Number Endpoint (Temporarily Bypass Member Sync)
 app.post('/api/check-phone', (req, res) => {
   try {
     const { phone } = req.body
@@ -37,42 +47,20 @@ app.post('/api/check-phone', (req, res) => {
 
     const rawDigits = phone.replace(/\D/g, '')
 
-    // Search guests by phone or variants
-    const stmt = db.prepare(`
-      SELECT * FROM guests 
-      WHERE phone = ? OR phone = ? OR phone = ?
-    `)
-    const guest = stmt.get(rawDigits, `0${rawDigits}`, `62${rawDigits}`)
-
-    if (guest) {
-      return res.json({
-        found: true,
-        guest: {
-          phone: guest.phone,
-          salutation: guest.salutation,
-          firstName: guest.first_name,
-          lastName: guest.last_name,
-          email: guest.email,
-          instagram: guest.instagram,
-          role: guest.role,
-          isRegistered: Boolean(guest.is_registered)
-        }
-      })
-    } else {
-      return res.json({
-        found: false,
-        guest: {
-          phone: rawDigits,
-          salutation: 'Mr.',
-          firstName: '',
-          lastName: '',
-          email: '',
-          instagram: '',
-          role: 'VIP GUEST',
-          isRegistered: false
-        }
-      })
-    }
+    // Temporarily bypass existing member sync: Always return found: false to force new registration flow
+    return res.json({
+      found: false,
+      guest: {
+        phone: rawDigits,
+        salutation: 'Mr.',
+        firstName: '',
+        lastName: '',
+        email: '',
+        instagram: '',
+        role: 'VIP GUEST',
+        isRegistered: false
+      }
+    })
   } catch (err) {
     console.error('[API Check Phone Error]', err)
     res.status(500).json({ error: 'Internal server error checking phone number' })
@@ -127,18 +115,23 @@ app.post('/api/guests', (req, res) => {
   }
 })
 
-// 4. Create Reservation Endpoint
+// 4. Create Reservation Endpoint (Simplified Short Access IDs)
 app.post('/api/reservations', (req, res) => {
   try {
-    const { phone, accessId, selectedDates } = req.body
+    let { phone, accessId, selectedDates } = req.body
 
-    if (!phone || !accessId || !selectedDates) {
+    if (!phone || !selectedDates) {
       return res.status(400).json({ error: 'Missing required reservation parameters' })
     }
 
     const rawPhone = String(phone).replace(/\D/g, '')
     const id = `res_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
     const datesJson = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
+
+    // Ensure accessId is short alphanumeric (e.g. K9X2P) without 0, O, 1, I, L
+    if (!accessId || accessId.length > 8 || accessId.includes('-')) {
+      accessId = generateShortAccessId(6)
+    }
 
     // Remove any previous reservation for this guest to keep latest
     db.prepare('DELETE FROM ticket_reservations WHERE guest_phone = ?').run(rawPhone)
@@ -613,29 +606,36 @@ app.post('/api/guests/override', (req, res) => {
     }
 
     const rawPhone = String(phone).replace(/\D/g, '')
-    const guest = db.prepare('SELECT * FROM guests WHERE phone = ? OR phone = ? OR phone = ?').get(phone, rawPhone, `62${rawPhone}`)
-    const targetPhone = guest ? guest.phone : (rawPhone || phone)
-    const accessId = db.prepare('SELECT access_id FROM ticket_reservations WHERE guest_phone = ? LIMIT 1').get(targetPhone)?.access_id || '0102-1108-1245'
+    const guest = db.prepare('SELECT * FROM guests WHERE phone = ? OR phone = ? OR phone = ? OR phone = ?').get(phone, rawPhone, `0${rawPhone}`, `62${rawPhone}`)
+    
+    if (!guest) {
+      return res.status(404).json({ success: false, error: 'Override Failed: Phone number not found.' })
+    }
+
+    const targetPhone = guest.phone
+    const resv = db.prepare('SELECT access_id FROM ticket_reservations WHERE guest_phone = ? LIMIT 1').get(targetPhone)
+    const accessId = resv ? resv.access_id : targetPhone
     const scanId = `scan_ovr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    const guestFullName = `${guest.first_name || 'Guest'} ${guest.last_name || ''}`.trim()
 
     if (action === 'force-out') {
       // Log check-out / force out
       db.prepare(`
         INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message)
         VALUES (?, ?, ?, ?, 'check-out', 'GRANTED', ?)
-      `).run(scanId, targetPhone, accessId, `${guest?.first_name || 'Guest'} ${guest?.last_name || ''}`.trim(), 'MANUAL OVERRIDE: FORCE OUT')
+      `).run(scanId, targetPhone, accessId, guestFullName, 'MANUAL OVERRIDE: FORCE OUT')
     } else {
       // Log check-in
       db.prepare(`
         INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message)
         VALUES (?, ?, ?, ?, 'check-in', 'GRANTED', ?)
-      `).run(scanId, targetPhone, accessId, `${guest?.first_name || 'Guest'} ${guest?.last_name || ''}`.trim(), 'MANUAL OVERRIDE: CHECK IN')
+      `).run(scanId, targetPhone, accessId, guestFullName, 'MANUAL OVERRIDE: CHECK IN')
     }
 
     res.json({ success: true, action, phone: targetPhone, liveOccupancy: getLiveOccupancy() })
   } catch (err) {
     console.error('[API Override Error]', err)
-    res.status(500).json({ error: 'Internal server error processing override' })
+    res.status(500).json({ success: false, error: 'Internal server error processing override' })
   }
 })
 

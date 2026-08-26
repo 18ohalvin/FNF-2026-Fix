@@ -234,6 +234,18 @@
       @close="isEditModalOpen = false"
       @saved="loadGuests(false)"
     />
+
+    <!-- Toast Notification for Alerts & Override Errors -->
+    <Transition name="toast">
+      <div v-if="toastMessage" class="toast-notification">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" stroke-width="2" style="flex-shrink: 0;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>{{ toastMessage }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -331,6 +343,16 @@ const formatScanTime = (scannedAt, isCheckedIn) => {
   }
 }
 
+const toastMessage = ref('')
+const showToast = (msg) => {
+  toastMessage.value = msg
+  setTimeout(() => {
+    if (toastMessage.value === msg) {
+      toastMessage.value = ''
+    }
+  }, 3500)
+}
+
 const handleOverride = async (guest) => {
   isActionProcessing.value = true
   const targetAction = guest.is_checked_in ? 'force-out' : 'check-in'
@@ -340,6 +362,9 @@ const handleOverride = async (guest) => {
     if (targetAction === 'check-in') {
       guest.last_scanned_at = new Date().toISOString()
     }
+  } else {
+    const errMsg = (res && res.error) || 'Override Failed: Phone number not found.'
+    showToast(errMsg)
   }
   isActionProcessing.value = false
 }
@@ -869,5 +894,38 @@ onUnmounted(() => {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+/* Toast Notification Styles */
+.toast-notification {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #000000;
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 30px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 10000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -20px);
 }
 </style>

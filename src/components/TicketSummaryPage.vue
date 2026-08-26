@@ -158,26 +158,12 @@ const guestTypeShort = computed(() => {
   return role.toUpperCase().includes('VIP') ? 'VIP' : 'GUEST'
 })
 
-// Access ID Format: <Day selected> - <Date Month Registered> - <Registered number>
-// E.g. If Day 1 & Day 2 selected -> '0102-1108-1245'
+// Access ID Format: Short 5-6 char alphanumeric code (e.g. K9X2P)
 const computedAccessId = computed(() => {
   if (props.userDetails?.access_id) {
     return props.userDetails.access_id
   }
-  // 1. Day selected string: e.g. [1, 2] -> "0102"
-  const dayNums = resolvedSelectedDates.value.map(d => d.dayNum).sort((a, b) => a - b)
-  const daysPart = dayNums.map(n => String(n).padStart(2, '0')).join('') || '01'
-
-  // 2. Date Month Registered: Current date DDMM (e.g. 1108)
-  const now = new Date()
-  const dd = String(now.getDate()).padStart(2, '0')
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dateMonthPart = `${dd}${mm}`
-
-  // 3. Registered number on registration date (e.g. 1245)
-  const regNumber = '1245'
-
-  return `${daysPart}-${dateMonthPart}-${regNumber}`
+  return 'K9X2P'
 })
 
 // Generate & Download high-resolution QR pass image

@@ -359,18 +359,20 @@ const handleDetailsSubmit = async (formData) => {
   navigateTo('select-dates')
 }
 
+const generateShortAccessId = (length = 6) => {
+  const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
+  let result = ''
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
 const handleDatesSubmit = async (dates) => {
   selectedEventDates.value = dates
 
-  // 1. Day selected string: e.g. [1, 2] -> "0102"
-  const dayNums = dates.map(id => parseInt(id.replace('day-', ''), 10) || 1).sort((a, b) => a - b)
-  const daysPart = dayNums.map(n => String(n).padStart(2, '0')).join('') || '01'
-
-  // 2. Date Month: DDMM
-  const now = new Date()
-  const dd = String(now.getDate()).padStart(2, '0')
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const accessId = `${daysPart}-${dd}${mm}-1245`
+  // Generate short 5-6 character alphanumeric Access ID (excluding 0, O, 1, I, L)
+  const accessId = generateShortAccessId(6)
 
   const phone = activeUserData.value?.phone || phoneNumber.value.replace(/\D/g, '') || '81707909707'
 

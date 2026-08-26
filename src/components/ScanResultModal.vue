@@ -139,7 +139,7 @@
       <!-- 5. NOT CHECKED IN WARNING (Exit Scan Mode) -->
       <div
         v-else-if="modalType === 'NOT_CHECKED_IN'"
-        class="result-modal already-checked-modal"
+        class="result-modal not-checked-modal"
         role="dialog"
         aria-modal="true"
       >
@@ -156,10 +156,16 @@
             <div class="badge-left bg-gray">
               <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'REGULAR' }}</span>
             </div>
-            <div class="badge-right bg-tan">
-              <span class="badge-code text-black">GUEST IS NOT INSIDE</span>
+            <div class="badge-right bg-warning-yellow">
+              <span class="badge-code text-black">NOT CHECKED IN</span>
             </div>
           </div>
+        </div>
+
+        <div class="not-checked-msg-section">
+          <p class="not-checked-subtext">
+            Cannot check out. Guest is not currently inside.
+          </p>
         </div>
 
         <div class="modal-actions">
@@ -372,7 +378,12 @@ onUnmounted(() => {
   background-color: #e0bda3;
 }
 
-/* Theme 4: Invalid Ticket / Wrong Day (Figma 447:386) */
+/* Theme 4: Not Checked In Warning (Yellow/Grey theme) */
+.not-checked-modal {
+  background-color: #f7e8aa;
+}
+
+/* Theme 5: Invalid Ticket / Wrong Day (Figma 447:386) */
 .invalid-ticket-modal {
   background-color: #4a2626;
 }
@@ -511,11 +522,29 @@ onUnmounted(() => {
   background-color: #e0bda3;
 }
 
+.bg-warning-yellow {
+  background-color: #e6cb67;
+}
+
 .badge-code {
   font-family: 'Assistant', 'Helvetica Neue', sans-serif;
   font-size: 16px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+/* Not Checked In Message */
+.not-checked-msg-section {
+  width: 100%;
+}
+
+.not-checked-subtext {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
+  line-height: 1.4;
 }
 
 /* Invalid Subtitle Message */

@@ -15,21 +15,11 @@ export async function apiCheckPhone(phone) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return await res.json()
   } catch (err) {
-    console.warn('[API Client] Server endpoint unreachable, using local fallback:', err)
+    console.warn('[API Client] Server endpoint unreachable, using fallback:', err)
     const rawDigits = phone.replace(/\D/g, '')
-    const isVip = ['81707909707', '081707909707', '6281707909707'].includes(rawDigits)
     return {
-      found: isVip,
-      guest: isVip ? {
-        phone: '81707909707',
-        salutation: 'Mr.',
-        firstName: 'ALVIN',
-        lastName: 'DECOROUS',
-        email: '18ohalvin@gmail.com',
-        instagram: '@ohalvin',
-        role: 'VIP GUEST',
-        isRegistered: true
-      } : {
+      found: false,
+      guest: {
         phone: rawDigits,
         salutation: 'Mr.',
         firstName: '',
@@ -208,11 +198,14 @@ export async function apiOverrideGuestStatus(phone, action) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, action })
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || data.success === false) {
+      return { success: false, error: data?.error || 'Override Failed: Phone number not found.' }
+    }
+    return data
   } catch (err) {
     console.error('[API Client] Override failed:', err)
-    return { success: false, error: err.message }
+    return { success: false, error: 'Override Failed: Phone number not found.' }
   }
 }
 
