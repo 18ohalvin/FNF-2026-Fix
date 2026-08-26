@@ -60,7 +60,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import DateOptionItem from './DateOptionItem.vue'
 import CtaButton from './CtaButton.vue'
 
@@ -82,7 +82,7 @@ const vipDates = [
   { id: 'day-1', date: '2 September 2026', day: 'Day 1' }
 ]
 
-// Day 2-5 for Regular Guest
+// Day 2-5 for Public Guest
 const publicDates = [
   { id: 'day-2', date: '3 September 2026', day: 'Day 2' },
   { id: 'day-3', date: '4 September 2026', day: 'Day 3' },
@@ -94,12 +94,21 @@ const publicDates = [
 const selectedDates = ref([])
 const isSubmitting = ref(false)
 
+onMounted(() => {
+  if (isVipGuest.value) {
+    selectedDates.value = ['day-1']
+  } else {
+    selectedDates.value = ['day-2']
+  }
+})
+
 const toggleDate = (id) => {
-  // Disallow non-VIP picking day-1
+  // Disallow public guests picking day-1
   if (id === 'day-1' && !isVipGuest.value) return
 
   const index = selectedDates.value.indexOf(id)
   if (index > -1) {
+    // Keep at least 1 date or toggle off
     selectedDates.value.splice(index, 1)
   } else {
     selectedDates.value.push(id)

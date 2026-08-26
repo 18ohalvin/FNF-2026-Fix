@@ -88,7 +88,7 @@
     <!-- PAGE 3: Date Selection Screen -->
     <template v-else-if="currentPage === 'select-dates'">
       <SelectDatesPage
-        :user-role="activeUserData?.role || 'VIP GUEST'"
+        :user-role="activeUserData?.role || (registrationType === 'public' ? 'PUBLIC ACCESS' : 'VIP GUEST')"
         @submit="handleDatesSubmit"
       />
     </template>
@@ -143,6 +143,7 @@ const REGISTERED_VIP_DATABASE = [
 
 // Navigation & Screen State
 const currentPage = ref('landing') // 'landing' | 'whatsapp-check' | 'review-details' | 'select-dates' | 'ticket-summary' | 'scanner' | 'analytics' | 'database' | 'login'
+const registrationType = ref('vip') // 'vip' | 'public'
 const countryCode = ref('+62')
 const phoneNumber = ref('')
 const isWhyModalOpen = ref(false)
@@ -150,11 +151,23 @@ const isCountryModalOpen = ref(false)
 const isCheckingDatabase = ref(false)
 const toastMessage = ref('')
 const activeUserData = ref(null)
-const selectedEventDates = ref(['day-1', 'day-2'])
+const selectedEventDates = ref(['day-1'])
 const intendedAdminPage = ref('scanner')
 
 const isStaffAuthenticated = () => {
   return localStorage.getItem('staff_auth') === 'true' || sessionStorage.getItem('staff_auth') === 'true'
+}
+
+const checkRegistrationTypeFromUrl = () => {
+  const path = window.location.pathname.toLowerCase()
+  const params = new URLSearchParams(window.location.search)
+  if (path.startsWith('/public') || params.get('type') === 'public') {
+    registrationType.value = 'public'
+    selectedEventDates.value = ['day-2']
+  } else {
+    registrationType.value = 'vip'
+    selectedEventDates.value = ['day-1']
+  }
 }
 
 // Navigation Helper with HTML5 History API for browser/device back button & URL routing support
@@ -177,11 +190,13 @@ const navigateTo = (page, replace = false) => {
   else if (page === 'scanner') targetUrl = '/scanner'
   else if (page === 'analytics') targetUrl = '/analytics'
   else if (page === 'database') targetUrl = '/database'
+  else if (registrationType.value === 'public') targetUrl = '/public'
+  else if (window.location.pathname.startsWith('/vip')) targetUrl = '/vip'
 
   if (replace) {
-    history.replaceState({ page }, '', targetUrl)
+    history.replaceState({ page, type: registrationType.value }, '', targetUrl)
   } else {
-    history.pushState({ page }, '', targetUrl)
+    history.pushState({ page, type: registrationType.value }, '', targetUrl)
   }
 }
 
@@ -208,6 +223,13 @@ const openCountryModal = () => {
   isCountryModalOpen.value = true
 }
 
+const handleGoHome = () => {
+  activeUserData.value = null
+  phoneNumber.value = ''
+  selectedEventDates.value = registrationType.value === 'public' ? ['day-2'] : ['day-1']
+  navigateTo('landing', true)
+}
+
 const handlePopState = (event) => {
   if (isWhyModalOpen.value) {
     isWhyModalOpen.value = false
@@ -217,6 +239,8 @@ const handlePopState = (event) => {
     isCountryModalOpen.value = false
     return
   }
+  checkRegistrationTypeFromUrl()
+
   if (event.state && event.state.page) {
     currentPage.value = event.state.page
   } else if (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/login')) {
@@ -248,6 +272,8 @@ const handlePopState = (event) => {
 }
 
 onMounted(() => {
+  checkRegistrationTypeFromUrl()
+
   // Direct URL Path Routing check
   const path = window.location.pathname
   if (path.startsWith('/admin') || path.startsWith('/login')) {
@@ -281,7 +307,7 @@ onMounted(() => {
       history.replaceState({ page: 'database' }, '', '/database')
     }
   } else {
-    history.replaceState({ page: 'landing' }, '', path)
+    history.replaceState({ page: 'landing', type: registrationType.value }, '', path)
   }
   window.addEventListener('popstate', handlePopState)
 })
@@ -311,14 +337,16 @@ const handleCheckNumber = async () => {
 
   isCheckingDatabase.value = true
   const rawDigits = phoneNumber.value.replace(/\D/g, '')
+  const defaultRole = registrationType.value === 'public' ? 'PUBLIC ACCESS' : 'VIP GUEST'
 
   try {
     const result = await apiCheckPhone(rawDigits)
     isCheckingDatabase.value = false
 
     if (result.found) {
-      activeUserData.value = { ...result.guest, isRegistered: true }
-      showToast('Verified: VIP Guest record found.')
+      const role = result.guest?.role || defaultRole
+      activeUserData.value = { ...result.guest, role, isRegistered: true }
+      showToast(`Verified: ${role.includes('VIP') ? 'VIP Guest' : 'Public Guest'} record found.`)
     } else {
       activeUserData.value = {
         phone: rawDigits,
@@ -327,7 +355,7 @@ const handleCheckNumber = async () => {
         lastName: '',
         email: '',
         instagram: '',
-        role: 'VIP GUEST',
+        role: defaultRole,
         isRegistered: false
       }
       showToast('Unregistered number. Please complete your details.')
@@ -336,6 +364,16 @@ const handleCheckNumber = async () => {
     navigateTo('review-details')
   } catch (err) {
     isCheckingDatabase.value = false
+    activeUserData.value = {
+      phone: rawDigits,
+      salutation: 'Mr.',
+      firstName: '',
+      lastName: '',
+      email: '',
+      instagram: '',
+      role: defaultRole,
+      isRegistered: false
+    }
     showToast('Notice: Using default profile mode.')
     navigateTo('review-details')
   }
@@ -405,12 +443,6 @@ const handleDatesSubmit = async (dates) => {
 
   showToast('Ticket Pass Generated & Synced!')
   navigateTo('ticket-summary')
-}
-
-const handleGoHome = () => {
-  if (currentPage.value !== 'landing') {
-    navigateTo('landing')
-  }
 }
 </script>
 

@@ -152,10 +152,10 @@ const formattedGuestName = computed(() => {
   return `${sal} ${first} ${last}`.trim()
 })
 
-// Guest Type short: "VIP" if VIP GUEST, else "GUEST"
+// Guest Type short: "VIP" if VIP GUEST, else "PUBLIC"
 const guestTypeShort = computed(() => {
   const role = props.userDetails.role || 'VIP GUEST'
-  return role.toUpperCase().includes('VIP') ? 'VIP' : 'GUEST'
+  return role.toUpperCase().includes('VIP') ? 'VIP' : 'PUBLIC'
 })
 
 // Access ID Format: 3-digit unique alphanumeric code (e.g. 707, K9X)

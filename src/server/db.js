@@ -455,7 +455,7 @@ class DatabaseAdapter {
 
   async createReservation({ phone, accessId, selectedDates }) {
     await this.connect()
-    const rawPhone = String(phone).replace(/\D/g, '')
+    const rawPhone = normalizePhoneNumber(phone)
     const id = `res_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
     const datesJson = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
 

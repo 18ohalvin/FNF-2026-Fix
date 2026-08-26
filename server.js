@@ -244,9 +244,9 @@ app.post('/api/reservations', async (req, res) => {
 // 5. Venue Scanner API - Process Entrance / Exit Scan
 app.post('/api/scan', requireStaffAuth, async (req, res) => {
   try {
-    let rawTicket = req.body.ticketCode || req.body.ticketId
+    let rawTicket = req.body.ticketCode || req.body.ticketId || req.body.ticket || req.body.code || req.body.accessId || req.body.phone
     const mode = req.body.mode || req.body.action || 'check-in'
-    const currentDay = req.body.currentDay || 'Day 1'
+    const currentDay = req.body.currentDay || req.body.eventDay || req.body.day || 'Day 1'
     const targetDayNum = normalizeDayId(currentDay)
 
     if (!rawTicket) {

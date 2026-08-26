@@ -12,8 +12,8 @@
       <p class="instruction-text">
         {{
           isRegistered
-            ? 'Your VIP e-pass will be delivered to this email address. Please confirm your information below.'
-            : 'Enter your details below. Your VIP e-pass will be sent to this email.'
+            ? `Your ${isVipGuest ? 'VIP ' : ''}e-pass will be delivered to this email address. Please confirm your information below.`
+            : `Enter your details below. Your ${isVipGuest ? 'VIP ' : ''}e-pass will be sent to this email.`
         }}
       </p>
 
@@ -127,6 +127,10 @@ const submitted = ref(false)
 
 const isRegistered = computed(() => {
   return props.initialData?.isRegistered !== false && Boolean(props.initialData?.firstName?.trim())
+})
+
+const isVipGuest = computed(() => {
+  return (userDetails.value.role || props.initialData?.role || '').toUpperCase().includes('VIP')
 })
 
 const formattedSalutation = computed(() => {
