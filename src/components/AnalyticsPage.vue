@@ -181,47 +181,116 @@
           </button>
         </div>
 
-        <!-- Dynamic Dynamic SVG Line Chart Plotting Hourly Arrivals -->
+        <!-- Ultra-Minimalist Smoothed Area Chart (Hourly Arrivals) -->
         <div class="chart-wrapper">
-          <div class="chart-y-axis">
-            <span v-for="val in yAxisTicks" :key="'y-' + val">{{ val }}</span>
-          </div>
-
           <div class="chart-body">
-            <svg class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none">
-              <!-- Subtle Horizontal Grid Lines -->
-              <line v-for="(val, idx) in yAxisTicks" :key="'grid-' + idx" x1="0" :y1="getYPos(val)" x2="1000" :y2="getYPos(val)" stroke="rgba(0,0,0,0.06)" stroke-width="1" stroke-dasharray="4 4" />
-
-              <!-- Smooth Area Gradient Fill Under Curve -->
+            <svg
+              class="chart-svg"
+              viewBox="0 0 1000 230"
+              preserveAspectRatio="none"
+              @mousemove="handleChartMouseMove"
+              @mouseleave="handleChartMouseLeave"
+              @touchmove.passive="handleChartTouchMove"
+              @touchend="handleChartMouseLeave"
+            >
+              <!-- Gradient Definition for Smoothed Area Fill -->
               <defs>
-                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#000000" stop-opacity="0.12" />
+                <linearGradient id="chartAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#000000" stop-opacity="0.22" />
+                  <stop offset="60%" stop-color="#000000" stop-opacity="0.06" />
                   <stop offset="100%" stop-color="#000000" stop-opacity="0.0" />
                 </linearGradient>
               </defs>
 
-              <path :d="chartAreaPath" fill="url(#chartGradient)" />
+              <!-- Smoothed Gradient Area Under Curve -->
+              <path :d="chartAreaPath" fill="url(#chartAreaGradient)" />
 
-              <!-- Main Dynamic Curve Path -->
-              <path :d="chartLinePath" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              <!-- Smoothed Spline Curve Line -->
+              <path
+                :d="chartLinePath"
+                fill="none"
+                stroke="#000000"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
 
-              <!-- Interactive Data Point Circles & Tooltips -->
-              <g v-for="(pt, idx) in chartPoints" :key="'pt-' + idx">
+              <!-- X-Axis Baseline & Small Vertical Tick Marks -->
+              <line x1="0" y1="216" x2="1000" y2="216" stroke="#000000" stroke-width="1" />
+              <line
+                v-for="(pt, idx) in chartPoints"
+                :key="'tick-' + idx"
+                :x1="pt.x"
+                y1="216"
+                :x2="pt.x"
+                y2="222"
+                stroke="#000000"
+                stroke-width="1"
+              />
+
+              <!-- Active Hover / Touch Tracking Group -->
+              <g v-if="activeHoverPoint" class="hover-overlay-group">
+                <!-- Thin Dashed Vertical Line Dropping to X-Axis -->
+                <line
+                  :x1="activeHoverPoint.x"
+                  :y1="activeHoverPoint.y"
+                  :x2="activeHoverPoint.x"
+                  y2="216"
+                  stroke="#000000"
+                  stroke-width="1.5"
+                  stroke-dasharray="3 3"
+                  class="hover-dashed-line"
+                />
+
+                <!-- Prominent Solid Dot on the Line -->
                 <circle
-                  :cx="pt.x"
-                  :cy="pt.y"
-                  r="4"
+                  :cx="activeHoverPoint.x"
+                  :cy="activeHoverPoint.y"
+                  r="6"
                   fill="#000000"
                   stroke="#ffffff"
-                  stroke-width="2"
-                  class="chart-dot"
+                  stroke-width="3"
+                  class="hover-active-dot"
                 />
+
+                <!-- Minimal Pill-Shaped Tooltip Directly Above the Dot -->
+                <g
+                  :transform="`translate(${Math.max(40, Math.min(960, activeHoverPoint.x))}, ${Math.max(28, activeHoverPoint.y - 12)})`"
+                  class="hover-pill-tooltip"
+                >
+                  <rect
+                    x="-32"
+                    y="-24"
+                    width="64"
+                    height="24"
+                    rx="12"
+                    ry="12"
+                    fill="#000000"
+                  />
+                  <text
+                    x="0"
+                    y="-8"
+                    text-anchor="middle"
+                    fill="#ffffff"
+                    font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+                    font-size="11"
+                    font-weight="700"
+                    letter-spacing="0.4"
+                  >
+                    {{ activeHoverPoint.val }}
+                  </text>
+                </g>
               </g>
             </svg>
 
-            <!-- X-Axis Labels (00:00 to 22:00) -->
+            <!-- X-Axis Labels (00:00 to 22:00) with dynamic active highlight -->
             <div class="chart-x-axis">
-              <span v-for="item in activeHourlyData" :key="item.slot" class="x-slot-label">
+              <span
+                v-for="(item, idx) in activeHourlyData"
+                :key="item.slot"
+                class="x-slot-label"
+                :class="{ active: hoveredPointIndex === idx }"
+              >
                 {{ item.slot }}
               </span>
             </div>
@@ -310,22 +379,80 @@ const occupancyPercent = computed(() => {
   return Math.min(100, Math.round((occupancyData.value.current / occupancyData.value.capacity) * 100))
 })
 
+const hoveredPointIndex = ref(null)
+
+const activeHoverPoint = computed(() => {
+  if (hoveredPointIndex.value !== null && chartPoints.value[hoveredPointIndex.value]) {
+    return chartPoints.value[hoveredPointIndex.value]
+  }
+  return null
+})
+
+const handleChartMouseMove = (event) => {
+  const svg = event.currentTarget
+  const rect = svg.getBoundingClientRect()
+  if (rect.width === 0) return
+  const mouseX = event.clientX - rect.left
+  const percentX = mouseX / rect.width
+  const svgX = percentX * 1000
+
+  const points = chartPoints.value
+  if (points.length === 0) return
+
+  let closestIdx = 0
+  let minDist = Infinity
+  points.forEach((pt, idx) => {
+    const dist = Math.abs(pt.x - svgX)
+    if (dist < minDist) {
+      minDist = dist
+      closestIdx = idx
+    }
+  })
+
+  hoveredPointIndex.value = closestIdx
+}
+
+const handleChartTouchMove = (event) => {
+  if (!event.touches || event.touches.length === 0) return
+  const touch = event.touches[0]
+  const svg = event.currentTarget
+  const rect = svg.getBoundingClientRect()
+  if (rect.width === 0) return
+  const touchX = touch.clientX - rect.left
+  const percentX = touchX / rect.width
+  const svgX = percentX * 1000
+
+  const points = chartPoints.value
+  if (points.length === 0) return
+
+  let closestIdx = 0
+  let minDist = Infinity
+  points.forEach((pt, idx) => {
+    const dist = Math.abs(pt.x - svgX)
+    if (dist < minDist) {
+      minDist = dist
+      closestIdx = idx
+    }
+  })
+
+  hoveredPointIndex.value = closestIdx
+}
+
+const handleChartMouseLeave = () => {
+  hoveredPointIndex.value = null
+}
+
 const maxChartVal = computed(() => {
   const maxInSeries = Math.max(...activeHourlyData.value.map(d => d.count), 0)
   return Math.max(20, Math.ceil(maxInSeries / 5) * 5)
 })
 
-const yAxisTicks = computed(() => {
-  const m = maxChartVal.value
-  const step = m / 4
-  return [m, m - step, m - (step * 2), step, 0]
-})
-
 const getYPos = (val) => {
-  const chartHeight = 200
   const max = maxChartVal.value
-  if (max === 0) return chartHeight
-  return chartHeight - (val / max) * (chartHeight - 20) + 10
+  if (max === 0) return 210
+  // Val 0 sits at y=210, max sits at y=25
+  const availableH = 185
+  return 210 - (val / max) * availableH
 }
 
 const chartPoints = computed(() => {
@@ -342,23 +469,40 @@ const chartPoints = computed(() => {
   }))
 })
 
+// Catmull-Rom to Cubic Bezier smooth spline interpolation
 const chartLinePath = computed(() => {
   const points = chartPoints.value
-  if (points.length === 0) return ''
+  if (!points || points.length === 0) return ''
+  if (points.length === 1) return `M ${points[0].x},${points[0].y}`
+  if (points.length === 2) return `M ${points[0].x},${points[0].y} L ${points[1].x},${points[1].y}`
 
-  // Smooth bezier curve generator
-  return points.reduce((acc, point, i, a) => {
-    if (i === 0) return `M ${point.x},${point.y}`
-    const p0 = a[i - 1]
-    const cx = (p0.x + point.x) / 2
-    return `${acc} C ${cx},${p0.y} ${cx},${point.y} ${point.x},${point.y}`
-  }, '')
+  let d = `M ${points[0].x},${points[0].y}`
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = i > 0 ? points[i - 1] : points[i]
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    const p3 = i < points.length - 2 ? points[i + 2] : p2
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6
+    const cp1y = p1.y + (p2.y - p0.y) / 6
+    const cp2x = p2.x - (p3.x - p1.x) / 6
+    const cp2y = p2.y - (p3.y - p1.y) / 6
+
+    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`
+  }
+
+  return d
 })
 
 const chartAreaPath = computed(() => {
   const line = chartLinePath.value
-  if (!line) return ''
-  return `${line} L 1000,210 L 0,210 Z`
+  const points = chartPoints.value
+  if (!line || points.length === 0) return ''
+  const first = points[0]
+  const last = points[points.length - 1]
+  const bottomY = 216
+  return `${line} L ${last.x},${bottomY} L ${first.x},${bottomY} Z`
 })
 
 const loadAnalytics = async () => {
@@ -747,63 +891,66 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* CHART WIDGET */
+/* ULTRA-MINIMALIST SMOOTHED AREA CHART */
 .chart-wrapper {
-  display: flex;
-  gap: 16px;
-  height: 288px;
-  padding: 16px 0;
+  width: 100%;
+  padding: 12px 0 0 0;
   box-sizing: border-box;
 }
 
-.chart-y-axis {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 400;
-  width: 20px;
-  padding-bottom: 24px;
-}
-
 .chart-body {
-  flex: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
   position: relative;
+  cursor: crosshair;
 }
 
 .chart-svg {
   width: 100%;
-  height: 220px;
+  height: 230px;
   overflow: visible;
+  display: block;
 }
 
-.chart-dot {
-  cursor: pointer;
-  transition: r 0.2s ease;
+.hover-overlay-group {
+  pointer-events: none;
 }
 
-.chart-dot:hover {
-  r: 6;
+.hover-dashed-line {
+  opacity: 0.7;
+}
+
+.hover-active-dot {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.hover-pill-tooltip rect {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.25));
 }
 
 .chart-x-axis {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 10px;
-  color: #6b7280;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  color: #666666;
   font-weight: 500;
-  padding-top: 8px;
+  padding-top: 6px;
+  user-select: none;
 }
 
 .x-slot-label {
-  width: 34px;
+  width: 36px;
   text-align: center;
+  transition: all 0.15s ease;
+}
+
+.x-slot-label.active {
+  color: #000000;
+  font-weight: 700;
+  transform: translateY(-1px);
 }
 
 @media (max-width: 768px) {
