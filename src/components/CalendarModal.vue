@@ -16,12 +16,12 @@
             </svg>
           </button>
 
-          <!-- Modal Title (Figma 472:296) -->
+          <!-- Modal Title (Figma 472:296 - 24px) -->
           <div class="title-container">
             <h1 class="modal-title">SELECT EVENT DATE</h1>
           </div>
 
-          <!-- Date Selection List (Figma 472:297-358) -->
+          <!-- Date Selection List (Figma 472:362) -->
           <div class="date-options-list">
             <div
               v-for="eventDay in eventDays"
@@ -39,7 +39,7 @@
                 </div>
               </div>
 
-              <!-- Square Checkbox (Figma 472:316) -->
+              <!-- Square Checkbox (Figma 472:316 - 28px x 28px) -->
               <div
                 class="checkbox-square"
                 :class="{ checked: selectedDayId === eventDay.id }"
@@ -61,7 +61,7 @@
             </div>
           </div>
 
-          <!-- Confirm Button (Figma 472:309-312) -->
+          <!-- Confirm Button (Figma 472:309-312 - 48px) -->
           <div class="buttons-container">
             <button
               type="button"
@@ -89,12 +89,12 @@ const props = defineProps({
 const emit = defineEmits(['close', 'select'])
 
 const allDaysList = [
-  { id: 'all', badge: 'ALL DAY', title: 'All Days', dateText: '02 – 06 September 2026', isoDate: '' },
+  { id: 'all', badge: 'ALL DAY', title: 'All Days', dateText: '02 September 2026', isoDate: '' },
   { id: 'day-1', badge: 'DAY 1', title: 'Day 1 - 02 September 2026', dateText: '02 September 2026', isoDate: '2026-09-02' },
-  { id: 'day-2', badge: 'DAY 2', title: 'Day 2 - 03 September 2026', dateText: '03 September 2026', isoDate: '2026-09-03' },
-  { id: 'day-3', badge: 'DAY 3', title: 'Day 3 - 04 September 2026', dateText: '04 September 2026', isoDate: '2026-09-04' },
-  { id: 'day-4', badge: 'DAY 4', title: 'Day 4 - 05 September 2026', dateText: '05 September 2026', isoDate: '2026-09-05' },
-  { id: 'day-5', badge: 'DAY 5', title: 'Day 5 - 06 September 2026', dateText: '06 September 2026', isoDate: '2026-09-06' }
+  { id: 'day-2', badge: 'DAY 2', title: 'Day 2 - 03 September 2026', dateText: '02 September 2026', isoDate: '2026-09-03' },
+  { id: 'day-3', badge: 'DAY 3', title: 'Day 3 - 04 September 2026', dateText: '02 September 2026', isoDate: '2026-09-04' },
+  { id: 'day-4', badge: 'DAY 4', title: 'Day 4 - 05 September 2026', dateText: '02 September 2026', isoDate: '2026-09-05' },
+  { id: 'day-5', badge: 'DAY 5', title: 'Day 5 - 06 September 2026', dateText: '02 September 2026', isoDate: '2026-09-06' }
 ]
 
 const eventDays = computed(() => {
@@ -179,10 +179,10 @@ const confirmSelection = () => {
 
 .modal-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 500;
   line-height: 1.1;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
   color: #000000;
   text-transform: uppercase;
   margin: 0;
@@ -218,7 +218,7 @@ const confirmSelection = () => {
 
 .day-label-badge {
   background-color: #000000;
-  width: 112px;
+  width: 88px;
   height: 28px;
   padding: 4px 16px;
   display: flex;
@@ -230,7 +230,7 @@ const confirmSelection = () => {
 
 .day-label-badge span {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 500;
   color: #ffffff;
   white-space: nowrap;
@@ -239,8 +239,8 @@ const confirmSelection = () => {
 
 .day-date-text {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 400;
   color: #000000;
   white-space: nowrap;
 }

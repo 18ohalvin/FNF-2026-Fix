@@ -16,12 +16,12 @@
             </svg>
           </button>
 
-          <!-- Title (Figma 472:271) -->
+          <!-- Title (Figma 472:271 - 24px) -->
           <div class="title-container">
             <h1 class="modal-title">OCCUPANCY<br />ADJUSTMENT</h1>
           </div>
 
-          <!-- Subtitle (Figma 472:274) -->
+          <!-- Subtitle (Figma 472:274 - 16px light) -->
           <div class="subtitle-container">
             <p class="modal-subtitle">Slide the bar below to set venue occupancy limit.</p>
           </div>
@@ -66,7 +66,7 @@
             {{ errorMessage }}
           </div>
 
-          <!-- Save Button (Figma 472:277) -->
+          <!-- Save Button (Figma 472:277 - 48px) -->
           <div class="buttons-container">
             <button
               type="button"
@@ -204,10 +204,10 @@ const handleSave = async () => {
 
 .modal-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 500;
   line-height: 1.1;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
   color: #000000;
   text-transform: uppercase;
   margin: 0;
@@ -220,7 +220,7 @@ const handleSave = async () => {
 .modal-subtitle {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 300;
   line-height: 1.35;
   color: #000000;
   margin: 0;
