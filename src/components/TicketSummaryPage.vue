@@ -180,7 +180,7 @@ const handleDownloadQr = async () => {
     // High-resolution retina scale for ultra-crisp mobile viewing & printing
     const scale = 3
     const width = 402
-    const height = 820
+    const height = 860
 
     const canvas = document.createElement('canvas')
     canvas.width = width * scale
@@ -232,9 +232,9 @@ const handleDownloadQr = async () => {
     ctx.textAlign = 'right'
     ctx.fillText('YOUR ACCESS', 378, 76)
 
-    // 4. QR Code Box (X: 24, Y: 96, Size: 195, Radius: 5)
+    // 4. QR Code Box (X: 24, Y: 108, Size: 195, Radius: 5) - +12px spacing from title
     const qrBoxX = 24
-    const qrBoxY = 96
+    const qrBoxY = 108
     const qrBoxSize = 195
     const qrRadius = 5
 
@@ -273,14 +273,14 @@ const handleDownloadQr = async () => {
     // Center QR code within box (13px inset)
     ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
 
-    // 5. Identity & Summary Grid (Y: 316)
+    // 5. Identity & Summary Grid (Y: 344) - +16px extra spacing from QR
     ctx.textAlign = 'left'
 
     // Row 1: GUEST NAME (Col 1, X: 24) & VENUE (Col 2, X: 216)
     ctx.fillStyle = isVip ? '#ffffff' : '#000000'
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('GUEST NAME', 24, 316)
-    ctx.fillText('VENUE', 216, 316)
+    ctx.fillText('GUEST NAME', 24, 344)
+    ctx.fillText('VENUE', 216, 344)
 
     // Guest Name Splitting: Ensures 2-word names occupy Line 1 and Line 2 without blank space
     const sal = (props.userDetails.salutation || '').trim()
@@ -313,18 +313,18 @@ const handleDownloadQr = async () => {
     }
 
     ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText(nameLine1, 24, 338)
+    ctx.fillText(nameLine1, 24, 368)
     if (nameLine2) {
-      ctx.fillText(nameLine2, 24, 358)
+      ctx.fillText(nameLine2, 24, 390)
     }
 
-    ctx.fillText('PLAZA SENAYAN', 216, 338)
-    ctx.fillText('4th FLOOR', 216, 358)
+    ctx.fillText('PLAZA SENAYAN', 216, 368)
+    ctx.fillText('4th FLOOR', 216, 390)
 
-    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 394)
+    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 438) - +16px extra spacing from Row 1
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('VALID FOR', 24, 394)
-    ctx.fillText('ACCESS ID', 216, 394)
+    ctx.fillText('VALID FOR', 24, 438)
+    ctx.fillText('ACCESS ID', 216, 438)
 
     ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
     let validForStr = ''
@@ -337,22 +337,22 @@ const handleDownloadQr = async () => {
         validForStr = resolvedSelectedDates.value.map(d => d.day).join(', ') || 'Day 2'
       }
     }
-    ctx.fillText(validForStr, 24, 416)
-    ctx.fillText(accessId, 216, 416)
+    ctx.fillText(validForStr, 24, 462)
+    ctx.fillText(accessId, 216, 462)
 
-    // 6. Ad Banner Image (Y: 448, X: 24, W: 354, H: 177)
+    // 6. Ad Banner Image (Y: 510, X: 24, W: 354, H: 177) - +16px extra spacing from Row 2
     const banner = await loadImage(adBannerImg)
-    ctx.drawImage(banner, 24, 448, 354, 177)
+    ctx.drawImage(banner, 24, 510, 354, 177)
 
-    // 7. Terms & Conditions (Y: 648, X: 24)
+    // 7. Terms & Conditions (Y: 720, X: 24) - +16px extra spacing from Ad Banner
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('TERMS & CONDITIONS:', 24, 648)
+    ctx.fillText('TERMS & CONDITIONS:', 24, 720)
 
     ctx.font = "300 11px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 670)
-    ctx.fillText('Present this ticket at the entrance for scanning.', 24, 688)
-    ctx.fillText('No re-entry once you have exited the venue.', 24, 706)
-    ctx.fillText('Management is not liable for loss of personal belongings.', 24, 724)
+    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 744)
+    ctx.fillText('Present this ticket at the entrance for scanning.', 24, 764)
+    ctx.fillText('No re-entry once you have exited the venue.', 24, 784)
+    ctx.fillText('Management is not liable for loss of personal belongings.', 24, 804)
 
     // 8. Trigger PNG File Download
     const downloadUrl = canvas.toDataURL('image/png')
