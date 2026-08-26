@@ -1,43 +1,75 @@
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="isOpen" class="calendar-backdrop" @click.self="emit('close')">
-        <div class="calendar-modal-card">
-          <!-- Modal Header -->
-          <div class="calendar-card-header">
-            <span class="header-title">SELECT EVENT DAY</span>
-            <button type="button" class="close-card-btn" @click="emit('close')">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
+      <div v-if="isOpen" class="modal-backdrop" @click.self="emit('close')">
+        <div class="modal-card" role="dialog" aria-modal="true">
+          <!-- Subtle Top Right Close Button -->
+          <button
+            type="button"
+            class="modal-close-icon"
+            aria-label="Close"
+            @click="emit('close')"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+
+          <!-- Modal Title (Figma 472:296) -->
+          <div class="title-container">
+            <h1 class="modal-title">SELECT EVENT DATE</h1>
           </div>
 
-          <!-- Clean Single-Line 5-Day Options -->
-          <div class="event-days-list">
-            <button
+          <!-- Date Selection List (Figma 472:297-358) -->
+          <div class="date-options-list">
+            <div
               v-for="eventDay in eventDays"
               :key="eventDay.id"
-              type="button"
-              class="event-day-item"
+              class="date-option-row"
               :class="{ selected: selectedDayId === eventDay.id }"
               @click="handleDaySelect(eventDay)"
             >
-              <div class="day-left-content">
-                <span class="day-badge">{{ eventDay.badge }}</span>
-                <span class="day-date-text">{{ eventDay.dateText }}</span>
+              <div class="date-container-left">
+                <div class="day-label-badge">
+                  <span>{{ eventDay.badge }}</span>
+                </div>
+                <div class="day-date-text">
+                  <span>{{ eventDay.dateText }}</span>
+                </div>
               </div>
-              <div class="radio-indicator" :class="{ active: selectedDayId === eventDay.id }">
-                <div v-if="selectedDayId === eventDay.id" class="radio-dot"></div>
+
+              <!-- Square Checkbox (Figma 472:316) -->
+              <div
+                class="checkbox-square"
+                :class="{ checked: selectedDayId === eventDay.id }"
+              >
+                <svg
+                  v-if="selectedDayId === eventDay.id"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ffffff"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
               </div>
-            </button>
+            </div>
           </div>
 
-          <!-- Modal Footer Actions -->
-          <div class="calendar-card-footer">
-            <button type="button" class="btn-cancel" @click="emit('close')">Cancel</button>
-            <button type="button" class="btn-confirm" @click="confirmSelection">Confirm</button>
+          <!-- Confirm Button (Figma 472:309-312) -->
+          <div class="buttons-container">
+            <button
+              type="button"
+              class="btn-confirm-date"
+              @click="confirmSelection"
+            >
+              Confirm
+            </button>
           </div>
         </div>
       </div>
@@ -57,12 +89,12 @@ const props = defineProps({
 const emit = defineEmits(['close', 'select'])
 
 const allDaysList = [
-  { id: 'all', badge: 'ALL', title: 'All Days', dateText: 'All Operating Days (02 - 06 Sep)', isoDate: '' },
-  { id: 'day-1', badge: 'DAY 1', title: 'Day 1 - 02 September 2026', dateText: 'Wednesday, 02 Sep 2026', isoDate: '2026-09-02' },
-  { id: 'day-2', badge: 'DAY 2', title: 'Day 2 - 03 September 2026', dateText: 'Thursday, 03 Sep 2026', isoDate: '2026-09-03' },
-  { id: 'day-3', badge: 'DAY 3', title: 'Day 3 - 04 September 2026', dateText: 'Friday, 04 Sep 2026', isoDate: '2026-09-04' },
-  { id: 'day-4', badge: 'DAY 4', title: 'Day 4 - 05 September 2026', dateText: 'Saturday, 05 Sep 2026', isoDate: '2026-09-05' },
-  { id: 'day-5', badge: 'DAY 5', title: 'Day 5 - 06 September 2026', dateText: 'Sunday, 06 Sep 2026', isoDate: '2026-09-06' }
+  { id: 'all', badge: 'ALL DAY', title: 'All Days', dateText: '02 – 06 September 2026', isoDate: '' },
+  { id: 'day-1', badge: 'DAY 1', title: 'Day 1 - 02 September 2026', dateText: '02 September 2026', isoDate: '2026-09-02' },
+  { id: 'day-2', badge: 'DAY 2', title: 'Day 2 - 03 September 2026', dateText: '03 September 2026', isoDate: '2026-09-03' },
+  { id: 'day-3', badge: 'DAY 3', title: 'Day 3 - 04 September 2026', dateText: '04 September 2026', isoDate: '2026-09-04' },
+  { id: 'day-4', badge: 'DAY 4', title: 'Day 4 - 05 September 2026', dateText: '05 September 2026', isoDate: '2026-09-05' },
+  { id: 'day-5', badge: 'DAY 5', title: 'Day 5 - 06 September 2026', dateText: '06 September 2026', isoDate: '2026-09-06' }
 ]
 
 const eventDays = computed(() => {
@@ -74,9 +106,9 @@ const selectedDayId = ref('all')
 watch(() => props.isOpen, (open) => {
   if (open) {
     if (!props.selectedDate || props.selectedDate.toLowerCase().includes('all')) {
-      selectedDayId.value = 'all'
+      selectedDayId.value = props.showAllOption ? 'all' : 'day-1'
     } else {
-      const matched = eventDays.value.find(d => props.selectedDate && (props.selectedDate.includes(d.badge) || props.selectedDate.includes(d.isoDate)))
+      const matched = eventDays.value.find(d => props.selectedDate && (props.selectedDate.includes(d.badge) || props.selectedDate.includes(d.isoDate) || props.selectedDate.includes(d.id)))
       selectedDayId.value = matched ? matched.id : (props.showAllOption ? 'all' : 'day-1')
     }
   }
@@ -94,7 +126,7 @@ const confirmSelection = () => {
 </script>
 
 <style scoped>
-.calendar-backdrop {
+.modal-backdrop {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.45);
@@ -102,177 +134,159 @@ const confirmSelection = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1200;
   padding: 16px;
-}
-
-.calendar-modal-card {
-  background-color: #ffffff;
-  border: 1px solid #000000;
-  width: 100%;
-  max-width: 380px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
-  display: flex;
-  flex-direction: column;
   box-sizing: border-box;
 }
 
-.calendar-card-header {
+.modal-card {
+  background-color: #ffffff;
+  border-radius: 0;
+  width: 100%;
+  max-width: 440px;
+  padding: 48px 32px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.16);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid #e5e5e5;
-  background-color: #f9f9f9;
+  flex-direction: column;
+  gap: 32px;
+  position: relative;
+  box-sizing: border-box;
 }
 
-.header-title {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  color: #000000;
-  text-transform: uppercase;
-}
-
-.close-card-btn {
+.modal-close-icon {
+  position: absolute;
+  top: 20px;
+  right: 20px;
   background: transparent;
   border: none;
   cursor: pointer;
+  color: #000000;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #000000;
   padding: 4px;
-  transition: opacity 0.2s ease;
-}
-
-.close-card-btn:hover {
   opacity: 0.6;
+  transition: opacity 0.15s ease;
 }
 
-.event-days-list {
+.modal-close-icon:hover {
+  opacity: 1;
+}
+
+.title-container {
+  width: 100%;
+}
+
+.modal-title {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  color: #000000;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.date-options-list {
   display: flex;
   flex-direction: column;
-  padding: 10px 14px;
-  gap: 6px;
+  gap: 16px;
+  width: 100%;
 }
 
-.event-day-item {
+.date-option-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  border: 1px solid #e0e0e0;
-  background: #ffffff;
+  height: 28px;
+  width: 100%;
   cursor: pointer;
-  text-align: left;
-  transition: all 0.15s ease;
-  box-sizing: border-box;
+  user-select: none;
+  transition: opacity 0.15s ease;
 }
 
-.event-day-item:hover {
-  background: #f7f7f7;
-  border-color: #000000;
+.date-option-row:hover {
+  opacity: 0.8;
 }
 
-.event-day-item.selected {
-  background: #f2f2f2;
-  border-color: #000000;
-}
-
-.day-left-content {
+.date-container-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
-.day-badge {
-  display: inline-block;
-  background: #000000;
-  color: #ffffff;
+.day-label-badge {
+  background-color: #000000;
+  width: 112px;
+  height: 28px;
+  padding: 4px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.day-label-badge span {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 3px 7px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .day-date-text {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   color: #000000;
   white-space: nowrap;
 }
 
-.radio-indicator {
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid #999999;
-  border-radius: 50%;
+.checkbox-square {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #000000;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.15s ease;
+  background-color: transparent;
   flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
-.radio-indicator.active {
-  border-color: #000000;
+.checkbox-square.checked {
+  background-color: #000000;
 }
 
-.radio-dot {
-  width: 8px;
-  height: 8px;
-  background: #000000;
-  border-radius: 50%;
+.buttons-container {
+  width: 100%;
 }
 
-.calendar-card-footer {
+.btn-confirm-date {
+  width: 100%;
+  height: 48px;
+  background-color: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 0;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 18px;
-  border-top: 1px solid #e5e5e5;
-  background-color: #f9f9f9;
+  justify-content: center;
+  transition: background-color 0.15s ease;
 }
 
-.btn-cancel {
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid #cccccc;
-  background: #ffffff;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
+.btn-confirm-date:hover {
+  background-color: #222222;
 }
 
-.btn-cancel:hover {
-  background: #f0f0f0;
-}
-
-.btn-confirm {
-  height: 34px;
-  padding: 0 18px;
-  border: 1px solid #000000;
-  background: #000000;
-  color: #ffffff;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-confirm:hover {
-  background: #222222;
-}
-
-/* Modal Transition */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
