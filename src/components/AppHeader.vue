@@ -21,7 +21,7 @@ const emit = defineEmits(['home'])
 <style scoped>
 .app-header {
   width: 100%;
-  height: 72px;
+  height: 48px;
   padding: 0 24px;
   display: flex;
   align-items: center;
