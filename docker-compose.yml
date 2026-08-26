@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fix-707-fullstack:latest
+    container_name: fix-707-app
+    restart: always
+    ports:
+      - "7070:7070"
+    environment:
+      - NODE_ENV=production
+      - PORT=7070
+      - DB_PATH=/app/data/database.sqlite
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:7070/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
