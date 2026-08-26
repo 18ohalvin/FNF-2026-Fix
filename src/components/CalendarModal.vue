@@ -46,16 +46,18 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
-  selectedDate: { type: String, default: 'Day 1 - 02 September 2026' }
+  selectedDate: { type: String, default: 'All Days' },
+  showAllOption: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['close', 'select'])
 
-const eventDays = [
+const allDaysList = [
+  { id: 'all', badge: 'ALL', title: 'All Days', dateText: 'All Operating Days (02 - 06 Sep)', isoDate: '' },
   { id: 'day-1', badge: 'DAY 1', title: 'Day 1 - 02 September 2026', dateText: 'Wednesday, 02 Sep 2026', isoDate: '2026-09-02' },
   { id: 'day-2', badge: 'DAY 2', title: 'Day 2 - 03 September 2026', dateText: 'Thursday, 03 Sep 2026', isoDate: '2026-09-03' },
   { id: 'day-3', badge: 'DAY 3', title: 'Day 3 - 04 September 2026', dateText: 'Friday, 04 Sep 2026', isoDate: '2026-09-04' },
@@ -63,12 +65,20 @@ const eventDays = [
   { id: 'day-5', badge: 'DAY 5', title: 'Day 5 - 06 September 2026', dateText: 'Sunday, 06 Sep 2026', isoDate: '2026-09-06' }
 ]
 
-const selectedDayId = ref('day-1')
+const eventDays = computed(() => {
+  return props.showAllOption ? allDaysList : allDaysList.filter(d => d.id !== 'all')
+})
+
+const selectedDayId = ref('all')
 
 watch(() => props.isOpen, (open) => {
   if (open) {
-    const matched = eventDays.find(d => props.selectedDate && (props.selectedDate.includes(d.badge) || props.selectedDate.includes(d.isoDate)))
-    selectedDayId.value = matched ? matched.id : 'day-1'
+    if (!props.selectedDate || props.selectedDate.toLowerCase().includes('all')) {
+      selectedDayId.value = 'all'
+    } else {
+      const matched = eventDays.value.find(d => props.selectedDate && (props.selectedDate.includes(d.badge) || props.selectedDate.includes(d.isoDate)))
+      selectedDayId.value = matched ? matched.id : (props.showAllOption ? 'all' : 'day-1')
+    }
   }
 })
 
@@ -77,7 +87,7 @@ const handleDaySelect = (dayObj) => {
 }
 
 const confirmSelection = () => {
-  const chosen = eventDays.find(d => d.id === selectedDayId.value) || eventDays[0]
+  const chosen = eventDays.value.find(d => d.id === selectedDayId.value) || eventDays.value[0]
   emit('select', chosen.title, chosen)
   emit('close')
 }

@@ -376,18 +376,20 @@ const handleDatesSubmit = async (dates) => {
 
   const phone = activeUserData.value?.phone || phoneNumber.value.replace(/\D/g, '') || '81707909707'
 
-  // Ensure guest is saved in SQLite database
-  await apiSaveGuest({
+  // STEP 1: MUST FIRST save/upsert guest profile to POST /api/guests BEFORE reservations
+  const guestPayload = {
     phone,
     salutation: activeUserData.value?.salutation || 'Mr.',
-    firstName: activeUserData.value?.firstName || 'GUEST',
-    lastName: activeUserData.value?.lastName || '',
+    firstName: activeUserData.value?.firstName || activeUserData.value?.first_name || 'GUEST',
+    lastName: activeUserData.value?.lastName || activeUserData.value?.last_name || '',
     email: activeUserData.value?.email || 'guest@707.co.id',
     instagram: activeUserData.value?.instagram || '',
     role: activeUserData.value?.role || 'VIP GUEST'
-  })
+  }
+  
+  await apiSaveGuest(guestPayload)
 
-  // Persist reservation to SQLite backend
+  // STEP 2: THEN create reservation with POST /api/reservations
   await apiCreateReservation({
     phone,
     accessId,
@@ -397,8 +399,9 @@ const handleDatesSubmit = async (dates) => {
   // Attach access_id to activeUserData for instant real-time sync
   if (activeUserData.value) {
     activeUserData.value.access_id = accessId
+    activeUserData.value.phone = phone
   } else {
-    activeUserData.value = { phone, access_id: accessId }
+    activeUserData.value = { ...guestPayload, access_id: accessId }
   }
 
   showToast('Ticket Pass Generated & Synced!')

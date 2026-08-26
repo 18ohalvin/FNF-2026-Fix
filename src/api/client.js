@@ -177,11 +177,14 @@ export async function apiFetchCustomerDatabase(searchQuery = '', filterType = ''
     const params = new URLSearchParams()
     if (searchQuery) params.append('search', searchQuery)
     if (filterType) params.append('filter', filterType)
-    if (dayStr) params.append('day', dayStr)
+    if (dayStr && !dayStr.toLowerCase().includes('all')) {
+      params.append('day', dayStr)
+    }
     const query = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(`${API_BASE}/api/guests/list${query}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
+    const data = await res.json()
+    return data
   } catch (err) {
     console.error('[API Client] Guests list fetch error:', err)
     return { guests: [] }

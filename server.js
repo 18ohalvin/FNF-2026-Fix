@@ -133,6 +133,15 @@ app.post('/api/reservations', (req, res) => {
       accessId = generateShortAccessId(6)
     }
 
+    // Ensure guest profile exists in guests table
+    const existingGuest = db.prepare('SELECT phone FROM guests WHERE phone = ?').get(rawPhone)
+    if (!existingGuest) {
+      db.prepare(`
+        INSERT INTO guests (phone, salutation, first_name, last_name, email, role, is_registered, updated_at)
+        VALUES (?, 'Mr.', 'GUEST', '', 'guest@707.co.id', 'VIP GUEST', 1, CURRENT_TIMESTAMP)
+      `).run(rawPhone)
+    }
+
     // Remove any previous reservation for this guest to keep latest
     db.prepare('DELETE FROM ticket_reservations WHERE guest_phone = ?').run(rawPhone)
 

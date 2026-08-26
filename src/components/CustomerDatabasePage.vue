@@ -274,9 +274,9 @@ const selectedEditGuest = ref(null)
 let searchDebounce = null
 let pollInterval = null
 
-// Event Day State
+// Event Day State (Defaults to 'All Days' so initial load fetches entire database)
 const isCalendarOpen = ref(false)
-const selectedEventDayText = ref('Day 1 - 02 September 2026')
+const selectedEventDayText = ref('All Days')
 
 const handleOpenEdit = (guest) => {
   selectedEditGuest.value = guest
@@ -291,9 +291,24 @@ const handleDaySelect = (dayTitle) => {
 
 const loadGuests = async (showLoadingSpinner = false) => {
   if (showLoadingSpinner) isLoading.value = true
-  const res = await apiFetchCustomerDatabase(searchQuery.value, currentFilter.value, selectedEventDayText.value)
-  if (res && res.guests) {
-    guests.value = res.guests
+  const dayParam = (!selectedEventDayText.value || selectedEventDayText.value.toLowerCase().includes('all')) 
+    ? '' 
+    : selectedEventDayText.value
+  const res = await apiFetchCustomerDatabase(searchQuery.value, currentFilter.value, dayParam)
+  
+  // Double-check mapping: support res.guests, res.data.guests, res.data, or array res
+  if (res) {
+    if (Array.isArray(res.guests)) {
+      guests.value = res.guests
+    } else if (res.data && Array.isArray(res.data.guests)) {
+      guests.value = res.data.guests
+    } else if (res.data && Array.isArray(res.data)) {
+      guests.value = res.data
+    } else if (Array.isArray(res)) {
+      guests.value = res
+    } else {
+      guests.value = []
+    }
   }
   if (showLoadingSpinner) isLoading.value = false
 }
