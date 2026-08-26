@@ -6,7 +6,7 @@
       <div class="banner-container">
         <img
           src="../assets/event-banner.png"
-          alt="The 707 Company - F+F Sale 2026 Friends and Family | 2-6 September 2026 Plaza Senayan 4th Floor"
+          alt="The 707 Company - F+F Sale 2026 (2-6 September 2026)"
           class="event-banner-img"
         />
       </div>
@@ -52,7 +52,7 @@ const emit = defineEmits(['start'])
   min-height: 0;
   width: 100%;
   position: relative;
-  background-color: #5c1b7e;
+  background-color: #f2f2f2;
   display: flex;
   align-items: center;
   justify-content: center;
