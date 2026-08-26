@@ -2,7 +2,7 @@
   <div class="landing-page-wrapper">
     <!-- Main Content Area -->
     <main class="landing-content">
-      <!-- Static Event Banner Poster (Fit to screen without cropping) -->
+      <!-- Static Event Banner Poster (Fill Screen) -->
       <div class="banner-container">
         <img
           src="../assets/event-banner.png"
@@ -54,20 +54,14 @@ const emit = defineEmits(['start'])
   position: relative;
   background-color: #f2f2f2;
   display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  padding: 4px 16px 12px 16px;
-  box-sizing: border-box;
 }
 
 .event-banner-img {
   width: 100%;
   height: 100%;
-  max-width: 100%;
-  max-height: 100%;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center center;
   user-select: none;
   -webkit-user-drag: none;
