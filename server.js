@@ -71,15 +71,15 @@ app.post('/api/check-phone', (req, res) => {
 app.post('/api/guests', (req, res) => {
   try {
     const phone = req.body.phone
-    const firstName = req.body.firstName || req.body.first_name
-    const lastName = req.body.lastName || req.body.last_name
-    const email = req.body.email
+    const firstName = req.body.firstName || req.body.first_name || 'GUEST'
+    const lastName = req.body.lastName || req.body.last_name || ''
+    const email = req.body.email || 'guest@707.co.id'
     const salutation = req.body.salutation || 'Mr.'
     const instagram = req.body.instagram || ''
     const role = req.body.role || 'VIP GUEST'
 
-    if (!phone || !firstName) {
-      return res.status(400).json({ error: 'Phone number and Name are required' })
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number is required' })
     }
 
     const rawPhone = String(phone).replace(/\D/g, '')

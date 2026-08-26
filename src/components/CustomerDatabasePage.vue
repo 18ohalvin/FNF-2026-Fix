@@ -145,7 +145,7 @@
             <!-- Access ID -->
             <div class="col-access">
               <span class="access-id-text">
-                {{ guest.access_id || '020305-1008-1245' }}
+                {{ guest.access_id || 'N/A' }}
               </span>
             </div>
 
