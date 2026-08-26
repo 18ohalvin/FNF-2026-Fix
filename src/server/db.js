@@ -279,7 +279,8 @@ class DatabaseAdapter {
 
   async upsertGuest({ phone, salutation = 'Mr.', firstName = 'GUEST', lastName = '', email = 'guest@707.co.id', instagram = '', role = 'VIP GUEST' }) {
     await this.connect()
-    const rawPhone = String(phone).replace(/\D/g, '')
+    const existing = await this.getGuestByPhone(phone)
+    const rawPhone = existing ? existing.phone : normalizePhoneNumber(phone)
     const fName = String(firstName || 'GUEST').trim().toUpperCase()
     const lName = String(lastName || '').trim().toUpperCase()
     const mail = String(email || 'guest@707.co.id').trim().toLowerCase()
@@ -455,33 +456,34 @@ class DatabaseAdapter {
 
   async createReservation({ phone, accessId, selectedDates }) {
     await this.connect()
-    const rawPhone = normalizePhoneNumber(phone)
+    let existingGuest = await this.getGuestByPhone(phone)
+    if (!existingGuest) {
+      const normPhone = normalizePhoneNumber(phone)
+      await this.upsertGuest({ phone: normPhone, firstName: 'GUEST' })
+      existingGuest = await this.getGuestByPhone(normPhone)
+    }
+
+    const guestPhoneKey = existingGuest ? existingGuest.phone : normalizePhoneNumber(phone)
     const id = `res_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
     const datesJson = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
 
-    // Ensure guest exists in guests table
-    const existingGuest = await this.getGuestByPhone(rawPhone)
-    if (!existingGuest) {
-      await this.upsertGuest({ phone: rawPhone, firstName: 'GUEST' })
-    }
-
     if (this.driverType === 'postgres') {
-      await this.pgPool.query(`DELETE FROM ticket_reservations WHERE guest_phone = $1`, [rawPhone])
+      await this.pgPool.query(`DELETE FROM ticket_reservations WHERE guest_phone = $1`, [guestPhoneKey])
       await this.pgPool.query(
         `INSERT INTO ticket_reservations (id, guest_phone, access_id, selected_dates) VALUES ($1, $2, $3, $4)`,
-        [id, rawPhone, accessId, datesJson]
+        [id, guestPhoneKey, accessId, datesJson]
       )
     } else if (this.driverType === 'mysql') {
-      await this.mysqlPool.query(`DELETE FROM ticket_reservations WHERE guest_phone = ?`, [rawPhone])
+      await this.mysqlPool.query(`DELETE FROM ticket_reservations WHERE guest_phone = ?`, [guestPhoneKey])
       await this.mysqlPool.query(
         `INSERT INTO ticket_reservations (id, guest_phone, access_id, selected_dates) VALUES (?, ?, ?, ?)`,
-        [id, rawPhone, accessId, datesJson]
+        [id, guestPhoneKey, accessId, datesJson]
       )
     } else {
-      this.sqliteDb.prepare(`DELETE FROM ticket_reservations WHERE guest_phone = ?`).run(rawPhone)
+      this.sqliteDb.prepare(`DELETE FROM ticket_reservations WHERE guest_phone = ?`).run(guestPhoneKey)
       this.sqliteDb.prepare(
         `INSERT INTO ticket_reservations (id, guest_phone, access_id, selected_dates) VALUES (?, ?, ?, ?)`
-      ).run(id, rawPhone, accessId, datesJson)
+      ).run(id, guestPhoneKey, accessId, datesJson)
     }
     return { success: true, reservationId: id, accessId }
   }

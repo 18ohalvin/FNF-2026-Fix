@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import db, { normalizePhoneNumber, normalizeDayId } from './src/server/db.js'
+import mailer from './src/server/mailer.js'
 
 dotenv.config()
 
@@ -234,10 +235,49 @@ app.post('/api/reservations', async (req, res) => {
       selectedDates
     })
 
+    // Trigger Mailchimp E-Pass Delivery asynchronously in background
+    try {
+      const guest = await db.getGuestByPhone(phone)
+      mailer.dispatchEventPass({
+        guest,
+        reservation: {
+          ...result,
+          access_id: accessId,
+          selected_dates: selectedDates
+        }
+      }).catch(err => console.error('[Mailer Async Warning]:', err.message || err))
+    } catch (mailErr) {
+      console.warn('[Mailer Trigger Warning]:', mailErr.message || mailErr)
+    }
+
     res.json(result)
   } catch (err) {
     console.error('[API Reservation Error]', err)
     res.status(500).json({ error: 'Internal server error creating reservation' })
+  }
+})
+
+// 4b. Test Email Dispatcher Endpoint (Staff only)
+app.post('/api/email/test', requireStaffAuth, async (req, res) => {
+  try {
+    const { email } = req.body
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required for testing' })
+    }
+
+    const testResult = await mailer.sendTransactionalPass({
+      guestName: 'TEST VIP GUEST',
+      accessId: '707',
+      role: 'VIP GUEST',
+      selectedDates: ['day-1'],
+      email,
+      phone: '081707909707'
+    })
+
+    res.json({ success: true, message: 'Test email triggered', testResult })
+  } catch (err) {
+    console.error('[API Email Test Error]', err)
+    res.status(500).json({ success: false, error: err.message })
   }
 })
 

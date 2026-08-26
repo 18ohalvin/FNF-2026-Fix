@@ -92,12 +92,11 @@
       </div>
     </main>
 
-    <!-- Sticky Bottom CTA Button: DOWNLOAD QR CODE (Substitutes DONE button) -->
+    <!-- Sticky Bottom CTA Button: DONE -->
     <CtaButton
       :active="true"
-      :loading="isDownloading"
-      label="DOWNLOAD QR CODE"
-      @click="handleDownloadQr"
+      label="DONE"
+      @click="emit('home')"
     />
   </div>
 </template>
