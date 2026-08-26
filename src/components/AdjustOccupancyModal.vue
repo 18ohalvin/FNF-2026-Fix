@@ -166,7 +166,7 @@ const handleSave = async () => {
 
 .modal-card {
   background-color: #ffffff;
-  border-radius: 8px;
+  border-radius: 0;
   width: 100%;
   max-width: 440px;
   padding: 48px 32px;
