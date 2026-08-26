@@ -75,8 +75,8 @@ app.post('/api/staff/logout', (req, res) => {
 // Helper Functions
 // ----------------------------------------------------
 
-// Generate short 5-6 character alphanumeric Access ID (excluding ambiguous 0, O, 1, I, L)
-function generateShortAccessId(length = 6) {
+// Generate 3-digit unique alphanumeric Access ID (excluding ambiguous 0, O, 1, I, L)
+function generateShortAccessId(length = 3) {
   const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
   let code = ''
   for (let i = 0; i < length; i++) {
@@ -208,7 +208,7 @@ app.post('/api/reservations', async (req, res) => {
     }
 
     if (!accessId || accessId.length > 8 || accessId.includes('-')) {
-      accessId = generateShortAccessId(6)
+      accessId = generateShortAccessId(3)
     }
 
     const result = await db.createReservation({

@@ -358,7 +358,7 @@ const handleDetailsSubmit = async (formData) => {
   navigateTo('select-dates')
 }
 
-const generateShortAccessId = (length = 6) => {
+const generateShortAccessId = (length = 3) => {
   const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
   let result = ''
   for (let i = 0; i < length; i++) {
@@ -370,8 +370,8 @@ const generateShortAccessId = (length = 6) => {
 const handleDatesSubmit = async (dates) => {
   selectedEventDates.value = dates
 
-  // Generate short 5-6 character alphanumeric Access ID (excluding 0, O, 1, I, L)
-  const accessId = generateShortAccessId(6)
+  // Generate 3-digit unique alphanumeric Access ID (excluding ambiguous 0, O, 1, I, L)
+  const accessId = generateShortAccessId(3)
 
   const phone = activeUserData.value?.phone || phoneNumber.value.replace(/\D/g, '') || '81707909707'
 

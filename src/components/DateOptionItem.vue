@@ -2,8 +2,9 @@
   <button
     type="button"
     class="date-option-item"
-    :class="{ 'is-selected': isSelected }"
-    @click="emit('toggle')"
+    :class="{ 'is-selected': isSelected, 'is-disabled': disabled }"
+    :disabled="disabled"
+    @click="!disabled && emit('toggle')"
   >
     <div class="date-left-group">
       <!-- Checkmark icon when selected -->
@@ -14,7 +15,10 @@
       </div>
       <span class="date-label">{{ date }}</span>
     </div>
-    <span class="day-label">{{ day }}</span>
+    <div class="day-right-group">
+      <span v-if="note" class="note-badge">{{ note }}</span>
+      <span class="day-label">{{ day }}</span>
+    </div>
   </button>
 </template>
 
@@ -31,6 +35,14 @@ const props = defineProps({
   isSelected: {
     type: Boolean,
     default: false
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  },
+  note: {
+    type: String,
+    default: ''
   }
 })
 
@@ -53,16 +65,41 @@ const emit = defineEmits(['toggle'])
   user-select: none;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   text-align: left;
+  transition: all 0.15s ease;
 }
 
 .date-option-item.is-selected {
   border: 1px solid #000000;
 }
 
+.date-option-item.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-color: #e5e5e5;
+}
+
 .date-left-group {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.day-right-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-badge {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #666666;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #d8d8d8;
+  padding: 2px 6px;
+  border-radius: 2px;
 }
 
 .check-icon-wrapper {

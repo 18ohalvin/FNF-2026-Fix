@@ -158,12 +158,12 @@ const guestTypeShort = computed(() => {
   return role.toUpperCase().includes('VIP') ? 'VIP' : 'GUEST'
 })
 
-// Access ID Format: Short 5-6 char alphanumeric code (e.g. K9X2P)
+// Access ID Format: 3-digit unique alphanumeric code (e.g. 707, K9X)
 const computedAccessId = computed(() => {
   if (props.userDetails?.access_id) {
     return props.userDetails.access_id
   }
-  return 'K9X2P'
+  return '707'
 })
 
 // Generate & Download high-resolution QR pass image

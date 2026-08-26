@@ -8,11 +8,11 @@
         <span class="user-role-badge">{{ userRole }}</span>
       </div>
 
-      <!-- VIP Access Section -->
+      <!-- VIP Access Section (Day 1) -->
       <section class="dates-section">
         <div class="section-header">
           <h2 class="section-title">VIP ACCESS</h2>
-          <p class="section-subtitle">Your exclusive early access days</p>
+          <p class="section-subtitle">Exclusive VIP access day</p>
         </div>
 
         <div class="options-list">
@@ -22,15 +22,18 @@
             :date="item.date"
             :day="item.day"
             :is-selected="selectedDates.includes(item.id)"
+            :disabled="!isVipGuest"
+            :note="!isVipGuest ? 'VIP Only' : ''"
             @toggle="toggleDate(item.id)"
           />
         </div>
       </section>
 
-      <!-- Public Access Section -->
+      <!-- Public / Regular Access Section (Day 2 - 5) -->
       <section class="dates-section public-section">
         <div class="section-header">
-          <h2 class="section-title">PUBLIC ACCESS</h2>
+          <h2 class="section-title">REGULAR & PUBLIC ACCESS</h2>
+          <p class="section-subtitle">Day 2 to Day 5 access</p>
         </div>
 
         <div class="options-list">
@@ -57,7 +60,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import DateOptionItem from './DateOptionItem.vue'
 import CtaButton from './CtaButton.vue'
 
@@ -70,22 +73,31 @@ const props = defineProps({
 
 const emit = defineEmits(['submit'])
 
+const isVipGuest = computed(() => {
+  return (props.userRole || '').toUpperCase().includes('VIP')
+})
+
+// Day 1 for VIP
 const vipDates = [
-  { id: 'day-1', date: '2 September 2026', day: 'Day 1' },
-  { id: 'day-2', date: '3 September 2026', day: 'Day 2' }
+  { id: 'day-1', date: '2 September 2026', day: 'Day 1' }
 ]
 
+// Day 2-5 for Regular Guest
 const publicDates = [
+  { id: 'day-2', date: '3 September 2026', day: 'Day 2' },
   { id: 'day-3', date: '4 September 2026', day: 'Day 3' },
   { id: 'day-4', date: '5 September 2026', day: 'Day 4' },
   { id: 'day-5', date: '6 September 2026', day: 'Day 5' }
 ]
 
-// User can pick one to all days
+// User can pick one to all allowed days
 const selectedDates = ref([])
 const isSubmitting = ref(false)
 
 const toggleDate = (id) => {
+  // Disallow non-VIP picking day-1
+  if (id === 'day-1' && !isVipGuest.value) return
+
   const index = selectedDates.value.indexOf(id)
   if (index > -1) {
     selectedDates.value.splice(index, 1)
