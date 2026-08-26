@@ -201,7 +201,8 @@ const handleDownloadQr = async () => {
     ctx.fillStyle = isVip ? '#000000' : '#f2f2f2'
     ctx.fillRect(0, 0, width, height)
 
-    // 2. Header: 707 Logo (X: 24, Y: 24, W: 52, H: 16)
+    // 2. Header: 707 Logo (Exactly 48px Header Height, 17px Logo Height matching AppHeader.vue)
+    // Header Y: 0 to 48px, Logo vertically centered at Y = (48 - 17) / 2 = 15.5px, X: 24px, W: 53px, H: 17px
     const logoImg = await loadImage(logo707Black)
     if (isVip) {
       // Draw pure white 707 logo on dark background for VIP E-Pass
@@ -213,27 +214,27 @@ const handleDownloadQr = async () => {
       tempCtx.globalCompositeOperation = 'source-in'
       tempCtx.fillStyle = '#FFFFFF'
       tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
-      ctx.drawImage(tempCanvas, 24, 24, 52, 16)
+      ctx.drawImage(tempCanvas, 24, 15.5, 53, 17)
     } else {
       // Draw black 707 logo on light background for Public E-Pass
-      ctx.drawImage(logoImg, 24, 24, 52, 16)
+      ctx.drawImage(logoImg, 24, 15.5, 53, 17)
     }
 
-    // 3. Title Row (Y: 66)
+    // 3. Title Row (Y: 76px)
     // Left Title: "VIP GUEST" or "PUBLIC GUEST"
     ctx.font = "300 18px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillStyle = isVip ? '#ffffff' : '#000000'
     ctx.textAlign = 'left'
-    ctx.fillText(isVip ? 'VIP GUEST' : 'PUBLIC GUEST', 24, 66)
+    ctx.fillText(isVip ? 'VIP GUEST' : 'PUBLIC GUEST', 24, 76)
 
     // Right Title: "YOUR ACCESS"
     ctx.font = "400 18px 'Helvetica Neue', Arial, sans-serif"
     ctx.textAlign = 'right'
-    ctx.fillText('YOUR ACCESS', 378, 66)
+    ctx.fillText('YOUR ACCESS', 378, 76)
 
-    // 4. QR Code Box (X: 24, Y: 84, Size: 195, Radius: 5)
+    // 4. QR Code Box (X: 24, Y: 96, Size: 195, Radius: 5)
     const qrBoxX = 24
-    const qrBoxY = 84
+    const qrBoxY = 96
     const qrBoxSize = 195
     const qrRadius = 5
 
@@ -272,32 +273,58 @@ const handleDownloadQr = async () => {
     // Center QR code within box (13px inset)
     ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
 
-    // 5. Identity & Summary Grid (Y: 304)
+    // 5. Identity & Summary Grid (Y: 316)
     ctx.textAlign = 'left'
 
     // Row 1: GUEST NAME (Col 1, X: 24) & VENUE (Col 2, X: 216)
     ctx.fillStyle = isVip ? '#ffffff' : '#000000'
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('GUEST NAME', 24, 304)
-    ctx.fillText('VENUE', 216, 304)
+    ctx.fillText('GUEST NAME', 24, 316)
+    ctx.fillText('VENUE', 216, 316)
 
-    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
-    const guestNameStr = formattedGuestName.value
-    const nameWords = guestNameStr.split(' ')
-    if (nameWords.length > 2) {
-      ctx.fillText(nameWords.slice(0, 2).join(' '), 24, 326)
-      ctx.fillText(nameWords.slice(2).join(' '), 24, 346)
+    // Guest Name Splitting: Ensures 2-word names occupy Line 1 and Line 2 without blank space
+    const sal = (props.userDetails.salutation || '').trim()
+    const first = (props.userDetails.firstName || '').toUpperCase().trim()
+    const last = (props.userDetails.lastName || '').toUpperCase().trim()
+
+    let nameLine1 = ''
+    let nameLine2 = ''
+
+    if (sal && first && last) {
+      const formattedSal = sal.endsWith('.') ? sal : sal + '.'
+      nameLine1 = `${formattedSal} ${first}`
+      nameLine2 = last
+    } else if (first && last) {
+      nameLine1 = first
+      nameLine2 = last
     } else {
-      ctx.fillText(guestNameStr, 24, 326)
+      const rawFull = formattedGuestName.value || 'GUEST'
+      const parts = rawFull.split(/\s+/).filter(Boolean)
+      if (parts.length === 2) {
+        nameLine1 = parts[0]
+        nameLine2 = parts[1]
+      } else if (parts.length > 2) {
+        nameLine1 = parts.slice(0, parts.length - 1).join(' ')
+        nameLine2 = parts[parts.length - 1]
+      } else {
+        nameLine1 = parts[0] || 'GUEST'
+        nameLine2 = ''
+      }
     }
 
-    ctx.fillText('PLAZA SENAYAN', 216, 326)
-    ctx.fillText('4th FLOOR', 216, 346)
+    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText(nameLine1, 24, 338)
+    if (nameLine2) {
+      ctx.fillText(nameLine2, 24, 358)
+    }
 
-    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 382)
+    ctx.fillText('PLAZA SENAYAN', 216, 338)
+    ctx.fillText('4th FLOOR', 216, 358)
+
+    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 394)
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('VALID FOR', 24, 382)
-    ctx.fillText('ACCESS ID', 216, 382)
+    ctx.fillText('VALID FOR', 24, 394)
+    ctx.fillText('ACCESS ID', 216, 394)
 
     ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
     let validForStr = ''
@@ -310,22 +337,22 @@ const handleDownloadQr = async () => {
         validForStr = resolvedSelectedDates.value.map(d => d.day).join(', ') || 'Day 2'
       }
     }
-    ctx.fillText(validForStr, 24, 404)
-    ctx.fillText(accessId, 216, 404)
+    ctx.fillText(validForStr, 24, 416)
+    ctx.fillText(accessId, 216, 416)
 
-    // 6. Ad Banner Image (Y: 436, X: 24, W: 354, H: 177)
+    // 6. Ad Banner Image (Y: 448, X: 24, W: 354, H: 177)
     const banner = await loadImage(adBannerImg)
-    ctx.drawImage(banner, 24, 436, 354, 177)
+    ctx.drawImage(banner, 24, 448, 354, 177)
 
-    // 7. Terms & Conditions (Y: 636, X: 24)
+    // 7. Terms & Conditions (Y: 648, X: 24)
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('TERMS & CONDITIONS:', 24, 636)
+    ctx.fillText('TERMS & CONDITIONS:', 24, 648)
 
     ctx.font = "300 11px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 658)
-    ctx.fillText('Present this ticket at the entrance for scanning.', 24, 676)
-    ctx.fillText('No re-entry once you have exited the venue.', 24, 694)
-    ctx.fillText('Management is not liable for loss of personal belongings.', 24, 712)
+    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 670)
+    ctx.fillText('Present this ticket at the entrance for scanning.', 24, 688)
+    ctx.fillText('No re-entry once you have exited the venue.', 24, 706)
+    ctx.fillText('Management is not liable for loss of personal belongings.', 24, 724)
 
     // 8. Trigger PNG File Download
     const downloadUrl = canvas.toDataURL('image/png')
