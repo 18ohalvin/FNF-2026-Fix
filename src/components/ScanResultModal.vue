@@ -16,7 +16,7 @@
           <p class="guest-name text-black">{{ formattedGuestName }}</p>
           <div class="badge-row border-black">
             <div class="badge-left bg-gray">
-              <span class="badge-role text-black">REGULAR</span>
+              <span class="badge-role text-black">PUBLIC</span>
             </div>
             <div class="badge-right bg-white">
               <span class="badge-code text-black">{{ displayAccessId }}</span>
@@ -87,7 +87,7 @@
           <p class="guest-name text-black">{{ formattedGuestName }}</p>
           <div class="badge-row border-black">
             <div class="badge-left bg-gray">
-              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'REGULAR' }}</span>
+              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'PUBLIC' }}</span>
             </div>
             <div class="badge-right bg-tan">
               <span class="badge-code text-black">CHECKED IN at {{ checkInTimeText }}</span>
@@ -117,7 +117,7 @@
           <p class="guest-name text-black">{{ formattedGuestName }}</p>
           <div class="badge-row border-black">
             <div class="badge-left bg-gray">
-              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'REGULAR' }}</span>
+              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'PUBLIC' }}</span>
             </div>
             <div class="badge-right bg-white">
               <span class="badge-code text-black">EXIT at {{ checkInTimeText }}</span>
@@ -154,7 +154,7 @@
           <p class="guest-name text-black">{{ formattedGuestName }}</p>
           <div class="badge-row border-black">
             <div class="badge-left bg-gray">
-              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'REGULAR' }}</span>
+              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'PUBLIC' }}</span>
             </div>
             <div class="badge-right bg-warning-yellow">
               <span class="badge-code text-black">NOT CHECKED IN</span>

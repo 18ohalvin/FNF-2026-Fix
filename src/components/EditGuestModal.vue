@@ -42,7 +42,7 @@
               <label class="field-label">Guest Role</label>
               <select v-model="form.role" class="form-select">
                 <option value="VIP GUEST">VIP GUEST</option>
-                <option value="REGULAR">REGULAR</option>
+                <option value="PUBLIC">PUBLIC</option>
               </select>
             </div>
             <div class="form-group">
@@ -154,7 +154,7 @@ watch(
       form.firstName = g.first_name || g.firstName || ''
       form.lastName = g.last_name || g.lastName || ''
       form.email = g.email || ''
-      form.role = (g.role || '').toUpperCase().includes('VIP') ? 'VIP GUEST' : 'REGULAR'
+      form.role = (g.role || '').toUpperCase().includes('VIP') ? 'VIP GUEST' : 'PUBLIC'
       form.accessId = g.access_id || ''
       form.isCheckedIn = g.is_checked_in ? 1 : 0
 

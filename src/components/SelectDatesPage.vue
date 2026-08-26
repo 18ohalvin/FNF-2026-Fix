@@ -29,10 +29,10 @@
         </div>
       </section>
 
-      <!-- Public / Regular Access Section (Day 2 - 5) -->
+      <!-- Public Access Section (Day 2 - 5) -->
       <section class="dates-section public-section">
         <div class="section-header">
-          <h2 class="section-title">REGULAR & PUBLIC ACCESS</h2>
+          <h2 class="section-title">PUBLIC ACCESS</h2>
           <p class="section-subtitle">Day 2 to Day 5 access</p>
         </div>
 

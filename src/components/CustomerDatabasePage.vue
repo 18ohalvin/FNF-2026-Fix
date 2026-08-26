@@ -131,7 +131,7 @@
             <!-- Guest Type (Figma: VIP / REGULAR) -->
             <div class="col-type">
               <span class="guest-type-text">
-                {{ guest.role?.toUpperCase().includes('VIP') ? 'VIP' : 'REGULAR' }}
+                {{ guest.role?.toUpperCase().includes('VIP') ? 'VIP' : 'PUBLIC' }}
               </span>
             </div>
 
