@@ -354,7 +354,6 @@ const handleCheckNumber = async () => {
         firstName: '',
         lastName: '',
         email: '',
-        instagram: '',
         role: defaultRole,
         isRegistered: false
       }
@@ -370,7 +369,6 @@ const handleCheckNumber = async () => {
       firstName: '',
       lastName: '',
       email: '',
-      instagram: '',
       role: defaultRole,
       isRegistered: false
     }

@@ -26,8 +26,12 @@
       <!-- Input Field -->
       <input
         ref="inputRef"
+        :id="id"
+        :name="name"
         :type="type"
         :value="modelValue"
+        :autocomplete="autocomplete"
+        :inputmode="inputmode"
         :placeholder="computedPlaceholder"
         :disabled="disabled"
         :readonly="readonly"
@@ -68,6 +72,22 @@ const props = defineProps({
   type: {
     type: String,
     default: 'text'
+  },
+  name: {
+    type: String,
+    default: ''
+  },
+  id: {
+    type: String,
+    default: ''
+  },
+  autocomplete: {
+    type: String,
+    default: ''
+  },
+  inputmode: {
+    type: String,
+    default: ''
   },
   hasError: {
     type: Boolean,

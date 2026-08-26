@@ -35,16 +35,23 @@
 
           <div class="firstname-input-wrapper">
             <FormInput
+              id="first-name"
+              name="given-name"
+              autocomplete="given-name"
               v-model="userDetails.firstName"
               label="FIRST NAME*"
               placeholder="FIRST NAME*"
               :has-error="submitted && !userDetails.firstName"
+              @update:modelValue="handleFirstNameInput"
             />
           </div>
         </div>
 
         <!-- Last Name Input -->
         <FormInput
+          id="last-name"
+          name="family-name"
+          autocomplete="family-name"
           v-model="userDetails.lastName"
           label="LAST NAME*"
           placeholder="LAST NAME*"
@@ -53,19 +60,15 @@
 
         <!-- Email Input -->
         <FormInput
+          id="email"
+          name="email"
+          autocomplete="email"
           v-model="userDetails.email"
           type="email"
           label="EMAIL*"
           placeholder="EMAIL*"
           helper-text="Must be an active inbox."
           :has-error="submitted && (!userDetails.email || !isValidEmail)"
-        />
-
-        <!-- Instagram Input -->
-        <FormInput
-          v-model="userDetails.instagram"
-          label="INSTAGRAM HANDLE"
-          placeholder="INSTAGRAM HANDLE"
         />
       </div>
 
@@ -112,7 +115,6 @@ const props = defineProps({
       firstName: '',
       lastName: '',
       email: '',
-      instagram: '',
       role: 'VIP GUEST'
     })
   }
@@ -140,6 +142,49 @@ const formattedSalutation = computed(() => {
   if (val.startsWith('mr')) return 'Mr.'
   return userDetails.value.salutation || 'Mr.'
 })
+
+// Intelligent Autofill Handler: If device autofill puts full name into First Name, split into First & Last Name
+const handleFirstNameInput = (val) => {
+  if (!val) {
+    userDetails.value.firstName = ''
+    return
+  }
+
+  const trimmed = val.trim()
+  const words = trimmed.split(/\s+/)
+
+  // If 2 or more words are inserted into first name and last name is empty
+  if (words.length >= 2 && !userDetails.value.lastName) {
+    const firstWordLower = words[0].toLowerCase().replace('.', '')
+    if (['mr', 'mrs', 'ms'].includes(firstWordLower)) {
+      userDetails.value.salutation = firstWordLower === 'mr' ? 'Mr.' : firstWordLower === 'mrs' ? 'Mrs.' : 'Ms.'
+      if (words.length === 2) {
+        userDetails.value.firstName = words[1]
+      } else if (words.length === 3) {
+        userDetails.value.firstName = words[1]
+        userDetails.value.lastName = words[2]
+      } else {
+        userDetails.value.firstName = words.slice(1, words.length - 1).join(' ')
+        userDetails.value.lastName = words[words.length - 1]
+      }
+      return
+    }
+
+    // Standard 2-word name (e.g. "Alvin Decorous")
+    if (words.length === 2) {
+      userDetails.value.firstName = words[0]
+      userDetails.value.lastName = words[1]
+      return
+    }
+
+    // 3+ words (e.g. "Mary Jane Watson")
+    userDetails.value.firstName = words.slice(0, words.length - 1).join(' ')
+    userDetails.value.lastName = words[words.length - 1]
+    return
+  }
+
+  userDetails.value.firstName = val
+}
 
 const isValidEmail = computed(() => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
