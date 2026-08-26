@@ -3,92 +3,79 @@
     <Transition name="fade">
       <div v-if="isOpen" class="modal-backdrop" @click.self="emit('close')">
         <div class="modal-card" role="dialog" aria-modal="true">
-          <!-- Header -->
-          <div class="modal-header">
-            <div class="header-left">
-              <span class="header-title">ADJUST MAX CAPACITY</span>
-              <span class="header-subtitle">Set global venue occupancy limit (1 – 10,000)</span>
-            </div>
-            <button
-              type="button"
-              class="close-btn"
-              aria-label="Close"
-              @click="emit('close')"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
+          <!-- Close Button (Top right subtle) -->
+          <button
+            type="button"
+            class="modal-close-icon"
+            aria-label="Close"
+            @click="emit('close')"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+
+          <!-- Title (Figma 472:271) -->
+          <div class="title-container">
+            <h1 class="modal-title">OCCUPANCY<br />ADJUSTMENT</h1>
           </div>
 
-          <!-- Body -->
-          <div class="modal-body">
-            <!-- Capacity Live Display Box -->
-            <div class="capacity-display-box">
-              <span class="display-label">NEW MAX CAPACITY</span>
-              <div class="display-main-number">
-                <span class="capacity-num">{{ capacityValue.toLocaleString() }}</span>
-                <span class="capacity-unit">GUESTS</span>
+          <!-- Subtitle (Figma 472:274) -->
+          <div class="subtitle-container">
+            <p class="modal-subtitle">Slide the bar below to set venue occupancy limit.</p>
+          </div>
+
+          <!-- Capacity Info & Slider (Figma 472:289) -->
+          <div class="capacity-info-container">
+            <!-- Capacity Numbers Header (Figma 472:286) -->
+            <div class="capacity-text-row">
+              <div class="target-capacity-display">
+                <span class="target-val">{{ capacityValue }}</span>
+                <span class="max-total">/10000</span>
               </div>
-              <div class="current-occupancy-note">
-                <span>Current Live Count: <strong>{{ currentOccupancy }}</strong> guests inside</span>
+              <div class="current-capacity-display">
+                Current Capacity: {{ currentCapacity }}
               </div>
             </div>
 
-            <!-- Clean Continuous Slider Control (1 – 10,000) -->
-            <div class="slider-container">
-              <div class="slider-labels-row">
-                <span class="slider-bound-label">1</span>
-                <span class="slider-current-indicator">{{ capacityValue.toLocaleString() }}</span>
-                <span class="slider-bound-label">10,000</span>
-              </div>
-
+            <!-- Custom Figma Style Slider (Figma 472:282) -->
+            <div class="slider-wrapper">
+              <div
+                class="slider-track-active"
+                :style="{ width: `${sliderPercent}%` }"
+              ></div>
+              <div
+                class="slider-track-inactive"
+                :style="{ left: `${sliderPercent}%`, width: `${100 - sliderPercent}%` }"
+              ></div>
               <input
                 v-model.number="capacityValue"
                 type="range"
                 min="1"
                 max="10000"
                 step="1"
-                class="capacity-range-slider"
-                aria-label="Max Capacity Slider"
+                class="figma-slider-input"
+                aria-label="Adjust Occupancy Limit"
               />
-            </div>
-
-            <!-- Warning Alert if capacity is set lower than current occupants -->
-            <div v-if="capacityValue < currentOccupancy" class="occupancy-warning-alert">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <span>Capacity limit is lower than current live guests ({{ currentOccupancy }}).</span>
-            </div>
-
-            <!-- Error banner -->
-            <div v-if="errorMessage" class="error-banner">
-              {{ errorMessage }}
             </div>
           </div>
 
-          <!-- Footer Actions -->
-          <div class="modal-footer">
+          <!-- Error Alert if any -->
+          <div v-if="errorMessage" class="error-msg-banner">
+            {{ errorMessage }}
+          </div>
+
+          <!-- Save Button (Figma 472:277) -->
+          <div class="buttons-container">
             <button
               type="button"
-              class="btn-cancel"
-              :disabled="isSaving"
-              @click="emit('close')"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="btn-save"
+              class="btn-save-confirm"
               :disabled="isSaving || capacityValue < 1 || capacityValue > 10000"
               @click="handleSave"
             >
               <span v-if="isSaving">Saving...</span>
-              <span v-else>Save Capacity</span>
+              <span v-else>Save</span>
             </button>
           </div>
         </div>
@@ -98,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { apiUpdateMaxCapacity } from '../api/client'
 
 const props = defineProps({
@@ -121,6 +108,11 @@ const emit = defineEmits(['close', 'updated'])
 const capacityValue = ref(100)
 const isSaving = ref(false)
 const errorMessage = ref('')
+
+const sliderPercent = computed(() => {
+  const val = Number(capacityValue.value) || 1
+  return Math.max(0, Math.min(100, (val / 10000) * 100))
+})
 
 watch(
   () => props.isOpen,
@@ -162,7 +154,7 @@ const handleSave = async () => {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.55);
+  background-color: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -174,251 +166,198 @@ const handleSave = async () => {
 
 .modal-card {
   background-color: #ffffff;
-  border: 1px solid #000000;
+  border-radius: 8px;
   width: 100%;
-  max-width: 420px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  max-width: 440px;
+  padding: 48px 32px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.16);
   display: flex;
   flex-direction: column;
+  gap: 32px;
+  position: relative;
   box-sizing: border-box;
 }
 
-.modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 18px 20px;
-  border-bottom: 1px solid #e5e5e5;
-  background-color: #f9f9f9;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.header-title {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #000000;
-  text-transform: uppercase;
-}
-
-.header-subtitle {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  color: #666666;
-}
-
-.close-btn {
+.modal-close-icon {
+  position: absolute;
+  top: 20px;
+  right: 20px;
   background: transparent;
   border: none;
   cursor: pointer;
+  color: #000000;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #000000;
   padding: 4px;
+  opacity: 0.6;
   transition: opacity 0.15s ease;
 }
 
-.close-btn:hover {
-  opacity: 0.6;
+.modal-close-icon:hover {
+  opacity: 1;
 }
 
-.modal-body {
-  padding: 24px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.title-container {
+  width: 100%;
 }
 
-.capacity-display-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #f4f4f4;
-  border: 1px solid #000000;
-  padding: 20px 16px;
-  gap: 4px;
-}
-
-.display-label {
+.modal-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
-  color: #666666;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  color: #000000;
   text-transform: uppercase;
+  margin: 0;
 }
 
-.display-main-number {
+.subtitle-container {
+  width: 100%;
+}
+
+.modal-subtitle {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #000000;
+  margin: 0;
+}
+
+.capacity-info-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.capacity-text-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 100%;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.target-capacity-display {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  color: #000000;
 }
 
-.capacity-num {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 48px;
-  font-weight: 700;
+.target-val {
+  font-size: 32px;
+  font-weight: 500;
   line-height: 1;
   color: #000000;
 }
 
-.capacity-unit {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+.max-total {
+  font-size: 16px;
   font-weight: 500;
-  letter-spacing: 0.5px;
-  color: #666666;
-}
-
-.current-occupancy-note {
-  margin-top: 6px;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  color: #666666;
-}
-
-.slider-container {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.slider-labels-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
   color: #000000;
 }
 
-.slider-bound-label {
-  color: #888888;
-  font-size: 12px;
-}
-
-.slider-current-indicator {
-  font-size: 14px;
-  font-weight: 700;
+.current-capacity-display {
+  font-size: 16px;
+  font-weight: 500;
   color: #000000;
 }
 
-.capacity-range-slider {
+/* CUSTOM FIGMA SLIDER */
+.slider-wrapper {
+  position: relative;
   width: 100%;
-  height: 8px;
-  background: #e0e0e0;
-  border-radius: 4px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.slider-track-active {
+  position: absolute;
+  left: 0;
+  height: 5px;
+  background-color: #000000;
+  pointer-events: none;
+}
+
+.slider-track-inactive {
+  position: absolute;
+  height: 1px;
+  background-color: #000000;
+  pointer-events: none;
+}
+
+.figma-slider-input {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  background: transparent;
   outline: none;
   cursor: pointer;
-  accent-color: #000000;
+  margin: 0;
+  z-index: 2;
   -webkit-appearance: none;
 }
 
-.capacity-range-slider::-webkit-slider-thumb {
+.figma-slider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 24px;
-  height: 24px;
-  background: #000000;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: transform 0.1s ease;
-}
-
-.capacity-range-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-}
-
-.capacity-range-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
-  background: #000000;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  border-radius: 50%;
+  width: 5px;
+  height: 21px;
+  background-color: #000000;
+  border-radius: 0;
+  border: none;
   cursor: pointer;
 }
 
-.occupancy-warning-alert {
+.figma-slider-input::-moz-range-thumb {
+  width: 5px;
+  height: 21px;
+  background-color: #000000;
+  border-radius: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.buttons-container {
+  width: 100%;
+}
+
+.btn-save-confirm {
+  width: 100%;
+  height: 48px;
+  background-color: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 0;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: #fffbe6;
-  border: 1px solid #ffe58f;
-  color: #d48806;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  line-height: 16px;
+  justify-content: center;
+  transition: background-color 0.15s ease;
 }
 
-.error-banner {
-  padding: 10px 12px;
+.btn-save-confirm:hover:not(:disabled) {
+  background-color: #222222;
+}
+
+.btn-save-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-msg-banner {
+  padding: 8px 12px;
   background: #fff1f0;
   border: 1px solid #ffa39e;
   color: #cf1322;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-}
-
-.modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 20px;
-  border-top: 1px solid #e5e5e5;
-  background-color: #f9f9f9;
-}
-
-.btn-cancel {
-  height: 38px;
-  padding: 0 16px;
-  border: 1px solid #cccccc;
-  background: #ffffff;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 13px;
-  font-weight: 500;
-  color: #000000;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.btn-cancel:hover:not(:disabled) {
-  background: #f0f0f0;
-}
-
-.btn-save {
-  height: 38px;
-  padding: 0 20px;
-  border: 1px solid #000000;
-  background: #000000;
-  color: #ffffff;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.btn-save:hover:not(:disabled) {
-  background: #222222;
-}
-
-.btn-save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .fade-enter-active,
