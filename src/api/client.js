@@ -3,20 +3,56 @@ import { env } from '../config/env'
 const API_BASE = env.apiBaseUrl || ''
 
 /**
+ * Robust API fetcher with auto-fallback to port 7070 if current origin (e.g. port 80 / dev) 
+ * lacks a reverse proxy or returns SPA HTML index.
+ */
+async function fetchWithApiFallback(urlPath, options = {}) {
+  const primaryUrl = API_BASE ? `${API_BASE}${urlPath}` : urlPath
+  try {
+    const res = await fetch(primaryUrl, options)
+    const contentType = res.headers.get('content-type') || ''
+    
+    // If web server returned HTML (SPA index) instead of API JSON:
+    if (contentType.includes('text/html') && urlPath.startsWith('/api/')) {
+      throw new Error('Received HTML instead of JSON API response')
+    }
+    
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      const err = new Error(errData?.error || `HTTP ${res.status}`)
+      err.data = errData
+      throw err
+    }
+    return await res.json()
+  } catch (primaryErr) {
+    // Attempt direct connection to Node.js backend port 7070 if running on port 80 / other port
+    if (typeof window !== 'undefined' && window.location.port !== '7070') {
+      try {
+        const fallbackUrl = `http://${window.location.hostname}:7070${urlPath}`
+        const res2 = await fetch(fallbackUrl, options)
+        const contentType2 = res2.headers.get('content-type') || ''
+        if (res2.ok && !contentType2.includes('text/html')) {
+          return await res2.json()
+        }
+      } catch (e) {}
+    }
+    throw primaryErr
+  }
+}
+
+/**
  * Check phone number registration status against backend SQLite DB
  */
 export async function apiCheckPhone(phone) {
   try {
-    const res = await fetch(`${API_BASE}/api/check-phone`, {
+    return await fetchWithApiFallback('/api/check-phone', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone })
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
   } catch (err) {
-    console.warn('[API Client] Server endpoint unreachable, using fallback:', err)
-    const rawDigits = phone.replace(/\D/g, '')
+    console.warn('[API Client] Check phone fallback:', err)
+    const rawDigits = String(phone).replace(/\D/g, '')
     return {
       found: false,
       guest: {
@@ -38,16 +74,14 @@ export async function apiCheckPhone(phone) {
  */
 export async function apiSaveGuest(guestData) {
   try {
-    const res = await fetch(`${API_BASE}/api/guests`, {
+    return await fetchWithApiFallback('/api/guests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(guestData)
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
   } catch (err) {
-    console.warn('[API Client] Server endpoint unreachable, saved locally:', err)
-    return { success: true }
+    console.error('[API Client] Failed to save guest profile to backend:', err)
+    return { success: false, error: err.message }
   }
 }
 
@@ -56,16 +90,14 @@ export async function apiSaveGuest(guestData) {
  */
 export async function apiCreateReservation(reservationData) {
   try {
-    const res = await fetch(`${API_BASE}/api/reservations`, {
+    return await fetchWithApiFallback('/api/reservations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reservationData)
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
   } catch (err) {
-    console.warn('[API Client] Server endpoint unreachable, reserved locally:', err)
-    return { success: true, reservationId: `local_${Date.now()}` }
+    console.error('[API Client] Failed to create reservation in backend:', err)
+    return { success: false, error: err.message }
   }
 }
 
@@ -74,12 +106,10 @@ export async function apiCreateReservation(reservationData) {
  */
 export async function apiFetchDashboardStats() {
   try {
-    const res = await fetch(`${API_BASE}/api/dashboard/stats`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
+    return await fetchWithApiFallback('/api/dashboard/stats')
   } catch (err) {
     console.error('[API Client] Failed to fetch dashboard stats:', err)
-    return { totalGuests: 1, vipGuests: 1, totalReservations: 1, recentGuests: [] }
+    return { totalGuests: 0, vipGuests: 0, totalReservations: 0, recentGuests: [] }
   }
 }
 
@@ -88,12 +118,11 @@ export async function apiFetchDashboardStats() {
  */
 export async function apiProcessScan({ ticketCode, mode = 'check-in', currentDay = 'Day 1' }) {
   try {
-    const res = await fetch(`${API_BASE}/api/scan`, {
+    return await fetchWithApiFallback('/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticketCode, mode, currentDay })
     })
-    return await res.json()
   } catch (err) {
     console.error('[API Client] Scan request failed:', err)
     return {
@@ -111,11 +140,9 @@ export async function apiProcessScan({ ticketCode, mode = 'check-in', currentDay
 export async function apiFetchOccupancy(dayStr = '') {
   try {
     const query = dayStr ? `?day=${encodeURIComponent(dayStr)}` : ''
-    const res = await fetch(`${API_BASE}/api/occupancy${query}`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
+    return await fetchWithApiFallback(`/api/occupancy${query}`)
   } catch (err) {
-    console.warn('[API Client] Occupancy endpoint unreachable, fallback stats:', err)
+    console.warn('[API Client] Occupancy endpoint fallback:', err)
     return {
       current: 0,
       capacity: 100,
@@ -132,9 +159,7 @@ export async function apiFetchOccupancy(dayStr = '') {
  */
 export async function apiResetOccupancy() {
   try {
-    const res = await fetch(`${API_BASE}/api/occupancy/reset`, { method: 'POST' })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
+    return await fetchWithApiFallback('/api/occupancy/reset', { method: 'POST' })
   } catch (err) {
     return { success: true, occupancy: 0, capacity: 100 }
   }
@@ -151,14 +176,12 @@ export async function apiFetchAnalytics(dateStr) {
       params.append('day', dateStr)
     }
     const query = params.toString() ? `?${params.toString()}` : ''
-    const res = await fetch(`${API_BASE}/api/analytics${query}`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
+    return await fetchWithApiFallback(`/api/analytics${query}`)
   } catch (err) {
-    console.warn('[API Client] Analytics endpoint unreachable, fallback metrics:', err)
+    console.warn('[API Client] Analytics endpoint fallback:', err)
     return {
       occupancy: { current: 0, capacity: 100, eventDayText: 'DAY 1 - MONDAY, 02 SEPTEMBER 2026' },
-      summary: { totalCheckedIn: 0, upcomingArrivals: 1, vipsCheckedIn: 0, failedScans: 0 },
+      summary: { totalCheckedIn: 0, upcomingArrivals: 0, vipsCheckedIn: 0, failedScans: 0 },
       hourlyArrivals: [
         { slot: '00:00', count: 0 }, { slot: '02:00', count: 0 }, { slot: '04:00', count: 0 },
         { slot: '06:00', count: 0 }, { slot: '08:00', count: 0 }, { slot: '10:00', count: 0 },
@@ -181,9 +204,7 @@ export async function apiFetchCustomerDatabase(searchQuery = '', filterType = ''
       params.append('day', dayStr)
     }
     const query = params.toString() ? `?${params.toString()}` : ''
-    const res = await fetch(`${API_BASE}/api/guests/list${query}`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
+    const data = await fetchWithApiFallback(`/api/guests/list${query}`)
     return data
   } catch (err) {
     console.error('[API Client] Guests list fetch error:', err)
@@ -196,19 +217,14 @@ export async function apiFetchCustomerDatabase(searchQuery = '', filterType = ''
  */
 export async function apiOverrideGuestStatus(phone, action) {
   try {
-    const res = await fetch(`${API_BASE}/api/guests/override`, {
+    return await fetchWithApiFallback('/api/guests/override', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, action })
     })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || data.success === false) {
-      return { success: false, error: data?.error || 'Override Failed: Phone number not found.' }
-    }
-    return data
   } catch (err) {
     console.error('[API Client] Override failed:', err)
-    return { success: false, error: 'Override Failed: Phone number not found.' }
+    return { success: false, error: err.data?.error || err.message || 'Override Failed: Phone number not found.' }
   }
 }
 
@@ -217,32 +233,22 @@ export async function apiOverrideGuestStatus(phone, action) {
  */
 export async function apiUpdateGuest(phone, updateData) {
   try {
-    let res = await fetch(`${API_BASE}/api/guests/${encodeURIComponent(phone)}`, {
+    return await fetchWithApiFallback(`/api/guests/${encodeURIComponent(phone)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData)
     })
-    if (!res.ok) {
-      // Fallback to POST /api/guests/update for proxies/tunnels blocking PUT
-      res = await fetch(`${API_BASE}/api/guests/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, ...updateData })
-      })
-    }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
   } catch (err) {
     try {
-      const res2 = await fetch(`${API_BASE}/api/guests/update`, {
+      return await fetchWithApiFallback('/api/guests/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, ...updateData })
       })
-      if (res2.ok) return await res2.json()
-    } catch (e) {}
-    console.error('[API Client] Update guest failed:', err)
-    return { success: false, error: err.message }
+    } catch (e) {
+      console.error('[API Client] Update guest failed:', err)
+      return { success: false, error: err.message }
+    }
   }
 }
 
@@ -251,29 +257,19 @@ export async function apiUpdateGuest(phone, updateData) {
  */
 export async function apiDeleteGuest(phone) {
   try {
-    let res = await fetch(`${API_BASE}/api/guests/${encodeURIComponent(phone)}`, {
+    return await fetchWithApiFallback(`/api/guests/${encodeURIComponent(phone)}`, {
       method: 'DELETE'
     })
-    if (!res.ok) {
-      // Fallback to POST /api/guests/delete for proxies/tunnels blocking DELETE
-      res = await fetch(`${API_BASE}/api/guests/delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
-      })
-    }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.json()
   } catch (err) {
     try {
-      const res2 = await fetch(`${API_BASE}/api/guests/delete`, {
+      return await fetchWithApiFallback('/api/guests/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone })
       })
-      if (res2.ok) return await res2.json()
-    } catch (e) {}
-    console.error('[API Client] Delete guest failed:', err)
-    return { success: false, error: err.message }
+    } catch (e) {
+      console.error('[API Client] Delete guest failed:', err)
+      return { success: false, error: err.message }
+    }
   }
 }
