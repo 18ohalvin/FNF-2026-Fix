@@ -51,7 +51,7 @@ const emit = defineEmits(['home'])
 }
 
 .brand-logo {
-  height: 24px;
+  height: 17px;
   width: auto;
   object-fit: contain;
   display: block;
