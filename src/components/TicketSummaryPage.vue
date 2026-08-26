@@ -103,9 +103,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import QRCode from 'qrcode'
 import CtaButton from './CtaButton.vue'
+import logo707Black from '../assets/logo-707.png'
+import adBannerImg from '../assets/ad-banner.png'
 
 const props = defineProps({
   userDetails: {
@@ -166,110 +168,169 @@ const computedAccessId = computed(() => {
   return '707'
 })
 
-// Generate & Download high-resolution QR pass image
+// Generate & Download high-resolution E-Pass image matching Figma nodes 197:958 (VIP) and 473:505 (Public)
 const handleDownloadQr = async () => {
   if (isDownloading.value) return
   isDownloading.value = true
 
   try {
+    const isVip = (props.userDetails.role || '').toUpperCase().includes('VIP')
     const accessId = computedAccessId.value
-    // Generate QR Code data URL
-    const qrDataUrl = await QRCode.toDataURL(accessId, {
-      width: 400,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
+
+    // High-resolution retina scale for ultra-crisp mobile viewing & printing
+    const scale = 3
+    const width = 402
+    const height = 820
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width * scale
+    canvas.height = height * scale
+    const ctx = canvas.getContext('2d')
+    ctx.scale(scale, scale)
+
+    // Image loader helper
+    const loadImage = (src) => new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => resolve(img)
+      img.onerror = (e) => reject(e)
+      img.src = src
     })
 
-    // Create offscreen canvas for a high-res event pass
-    const canvas = document.createElement('canvas')
-    canvas.width = 640
-    canvas.height = 880
-    const ctx = canvas.getContext('2d')
+    // 1. Card Background Fill (Pure Black for VIP, Brutalist Light Grey #F2F2F2 for Public)
+    ctx.fillStyle = isVip ? '#000000' : '#f2f2f2'
+    ctx.fillRect(0, 0, width, height)
 
-    // Background
-    ctx.fillStyle = '#f7f7f7'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    // 2. Header: 707 Logo (X: 24, Y: 24, W: 52, H: 16)
+    const logoImg = await loadImage(logo707Black)
+    if (isVip) {
+      // Draw pure white 707 logo on dark background for VIP E-Pass
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = logoImg.width
+      tempCanvas.height = logoImg.height
+      const tempCtx = tempCanvas.getContext('2d')
+      tempCtx.drawImage(logoImg, 0, 0)
+      tempCtx.globalCompositeOperation = 'source-in'
+      tempCtx.fillStyle = '#FFFFFF'
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
+      ctx.drawImage(tempCanvas, 24, 24, 52, 16)
+    } else {
+      // Draw black 707 logo on light background for Public E-Pass
+      ctx.drawImage(logoImg, 24, 24, 52, 16)
+    }
 
-    // Pass Card Container
-    ctx.fillStyle = '#ffffff'
-    ctx.strokeStyle = '#000000'
-    ctx.lineWidth = 3
-    ctx.fillRect(40, 40, 560, 800)
-    ctx.strokeRect(40, 40, 560, 800)
+    // 3. Title Row (Y: 66)
+    // Left Title: "VIP GUEST" or "PUBLIC GUEST"
+    ctx.font = "300 18px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillStyle = isVip ? '#ffffff' : '#000000'
+    ctx.textAlign = 'left'
+    ctx.fillText(isVip ? 'VIP GUEST' : 'PUBLIC GUEST', 24, 66)
 
-    // Header Title
-    ctx.fillStyle = '#000000'
-    ctx.font = 'bold 36px Helvetica, Arial, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('707 EVENT PASS', 320, 110)
+    // Right Title: "YOUR ACCESS"
+    ctx.font = "400 18px 'Helvetica Neue', Arial, sans-serif"
+    ctx.textAlign = 'right'
+    ctx.fillText('YOUR ACCESS', 378, 66)
 
-    // Subtitle
-    ctx.font = '500 16px Helvetica, Arial, sans-serif'
-    ctx.fillStyle = '#555555'
-    ctx.fillText('PLAZA SENAYAN - 4TH FLOOR', 320, 145)
+    // 4. QR Code Box (X: 24, Y: 84, Size: 195, Radius: 5)
+    const qrBoxX = 24
+    const qrBoxY = 84
+    const qrBoxSize = 195
+    const qrRadius = 5
 
-    // Divider Line
-    ctx.strokeStyle = '#dddddd'
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    ctx.moveTo(80, 175)
-    ctx.lineTo(560, 175)
+    // Rounded rectangle helper
+    const drawRoundRect = (c, x, y, w, h, r) => {
+      c.beginPath()
+      c.moveTo(x + r, y)
+      c.arcTo(x + w, y, x + w, y + h, r)
+      c.arcTo(x + w, y + h, x, y + h, r)
+      c.arcTo(x, y + h, x, y, r)
+      c.arcTo(x, y, x + w, y, r)
+      c.closePath()
+    }
+
+    // Inner QR container background (#F2F2F2)
+    ctx.fillStyle = '#f2f2f2'
+    drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
+    ctx.fill()
+
+    // QR Border (White for VIP, Black for Public)
+    ctx.strokeStyle = isVip ? '#ffffff' : '#000000'
+    ctx.lineWidth = 0.5
+    drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
     ctx.stroke()
 
-    // Draw QR Code
-    const qrImg = new Image()
-    qrImg.src = qrDataUrl
-    await new Promise((resolve) => {
-      qrImg.onload = () => {
-        ctx.drawImage(qrImg, 180, 200, 280, 280)
-        resolve()
+    // Generate high-resolution QR code
+    const qrDataUrl = await QRCode.toDataURL(accessId, {
+      width: 600,
+      margin: 0,
+      color: {
+        dark: '#000000',
+        light: '#f2f2f2'
       }
     })
+    const qrImg = await loadImage(qrDataUrl)
+    // Center QR code within box (13px inset)
+    ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
 
-    // Access ID
-    ctx.font = 'bold 22px Helvetica, Arial, sans-serif'
-    ctx.fillStyle = '#000000'
-    ctx.fillText(`ACCESS ID: ${accessId}`, 320, 520)
-
-    // Guest Info Box
-    ctx.fillStyle = '#f9f9f9'
-    ctx.fillRect(80, 550, 480, 170)
-    ctx.strokeStyle = '#eeeeee'
-    ctx.strokeRect(80, 550, 480, 170)
-
+    // 5. Identity & Summary Grid (Y: 304)
     ctx.textAlign = 'left'
-    ctx.font = '300 13px Helvetica, Arial, sans-serif'
-    ctx.fillStyle = '#777777'
-    ctx.fillText('GUEST NAME', 105, 580)
-    ctx.fillText('GUEST TYPE', 360, 580)
 
-    ctx.font = 'bold 16px Helvetica, Arial, sans-serif'
-    ctx.fillStyle = '#000000'
-    ctx.fillText(formattedGuestName.value, 105, 608)
-    ctx.fillText(guestTypeShort.value, 360, 608)
+    // Row 1: GUEST NAME (Col 1, X: 24) & VENUE (Col 2, X: 216)
+    ctx.fillStyle = isVip ? '#ffffff' : '#000000'
+    ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('GUEST NAME', 24, 304)
+    ctx.fillText('VENUE', 216, 304)
 
-    ctx.font = '300 13px Helvetica, Arial, sans-serif'
-    ctx.fillStyle = '#777777'
-    ctx.fillText('VALID FOR', 105, 650)
+    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+    const guestNameStr = formattedGuestName.value
+    const nameWords = guestNameStr.split(' ')
+    if (nameWords.length > 2) {
+      ctx.fillText(nameWords.slice(0, 2).join(' '), 24, 326)
+      ctx.fillText(nameWords.slice(2).join(' '), 24, 346)
+    } else {
+      ctx.fillText(guestNameStr, 24, 326)
+    }
 
-    ctx.font = '500 15px Helvetica, Arial, sans-serif'
-    ctx.fillStyle = '#000000'
-    const daysSummary = resolvedSelectedDates.value.map(d => d.day).join(', ')
-    ctx.fillText(daysSummary, 105, 678)
+    ctx.fillText('PLAZA SENAYAN', 216, 326)
+    ctx.fillText('4th FLOOR', 216, 346)
 
-    // Footer instructions
-    ctx.textAlign = 'center'
-    ctx.font = '12px Helvetica, Arial, sans-serif'
-    ctx.fillStyle = '#888888'
-    ctx.fillText('Please show this QR pass at entrance scanner checkpoint', 320, 780)
+    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 382)
+    ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('VALID FOR', 24, 382)
+    ctx.fillText('ACCESS ID', 216, 382)
 
-    // Download trigger
+    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+    let validForStr = ''
+    if (isVip) {
+      validForStr = resolvedSelectedDates.value.map(d => d.day).join(', ') || 'Day 1'
+    } else {
+      if (resolvedSelectedDates.value.length >= 4) {
+        validForStr = 'ALL DAY'
+      } else {
+        validForStr = resolvedSelectedDates.value.map(d => d.day).join(', ') || 'Day 2'
+      }
+    }
+    ctx.fillText(validForStr, 24, 404)
+    ctx.fillText(accessId, 216, 404)
+
+    // 6. Ad Banner Image (Y: 436, X: 24, W: 354, H: 177)
+    const banner = await loadImage(adBannerImg)
+    ctx.drawImage(banner, 24, 436, 354, 177)
+
+    // 7. Terms & Conditions (Y: 636, X: 24)
+    ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('TERMS & CONDITIONS:', 24, 636)
+
+    ctx.font = "300 11px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 658)
+    ctx.fillText('Present this ticket at the entrance for scanning.', 24, 676)
+    ctx.fillText('No re-entry once you have exited the venue.', 24, 694)
+    ctx.fillText('Management is not liable for loss of personal belongings.', 24, 712)
+
+    // 8. Trigger PNG File Download
     const downloadUrl = canvas.toDataURL('image/png')
     const link = document.createElement('a')
-    link.download = `707_Pass_${accessId}.png`
+    link.download = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.png`
     link.href = downloadUrl
     document.body.appendChild(link)
     link.click()
