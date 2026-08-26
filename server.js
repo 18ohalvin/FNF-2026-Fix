@@ -24,31 +24,49 @@ app.use((req, res, next) => {
 })
 
 // ----------------------------------------------------
-// Staff Auth: PIN login -> bearer session token
+// Staff Auth: PIN login -> HMAC-signed stateless session token
 // ----------------------------------------------------
 const STAFF_STORE_ID = process.env.STAFF_STORE_ID
 const STAFF_PIN = process.env.STAFF_PIN
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000 // 12 hours
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+const AUTH_SECRET = `${STAFF_PIN}_${STAFF_STORE_ID}_707_SALT_2026`
 
 if (!STAFF_STORE_ID || !STAFF_PIN) {
   console.error('[FATAL] STAFF_STORE_ID and STAFF_PIN env vars must be set — refusing to start without staff credentials configured.')
   process.exit(1)
 }
 
-const sessions = new Map() // token -> expiresAt
+const revokedTokens = new Set()
+
+export function generateStaffToken() {
+  const ts = Date.now().toString(36)
+  const rand = crypto.randomBytes(8).toString('hex')
+  const payload = `${ts}.${rand}`
+  const hmac = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest('hex').substring(0, 32)
+  return `${payload}.${hmac}`
+}
+
+export function verifyStaffToken(token) {
+  if (!token || revokedTokens.has(token)) return false
+  const parts = token.split('.')
+  if (parts.length !== 3) return false
+  const [ts, rand, sig] = parts
+  const payload = `${ts}.${rand}`
+  const expectedSig = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest('hex').substring(0, 32)
+  if (sig !== expectedSig) return false
+  const timestamp = parseInt(ts, 36)
+  if (isNaN(timestamp) || Date.now() - timestamp > SESSION_TTL_MS) return false
+  return true
+}
 
 export function requireStaffAuth(req, res, next) {
   const authHeader = req.headers.authorization || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-  const expiresAt = token && sessions.get(token)
 
-  if (!expiresAt || expiresAt < Date.now()) {
-    if (token) sessions.delete(token)
+  if (!token || !verifyStaffToken(token)) {
     return res.status(401).json({ error: 'Unauthorized: staff login required' })
   }
 
-  // Sliding expiry
-  sessions.set(token, Date.now() + SESSION_TTL_MS)
   next()
 }
 
@@ -59,15 +77,14 @@ app.post('/api/staff/login', (req, res) => {
     return res.status(401).json({ success: false, error: 'Invalid Store ID or PIN. Please check your credentials.' })
   }
 
-  const token = crypto.randomBytes(32).toString('hex')
-  sessions.set(token, Date.now() + SESSION_TTL_MS)
+  const token = generateStaffToken()
   res.json({ success: true, token })
 })
 
 app.post('/api/staff/logout', (req, res) => {
   const authHeader = req.headers.authorization || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-  if (token) sessions.delete(token)
+  if (token) revokedTokens.add(token)
   res.json({ success: true })
 })
 
