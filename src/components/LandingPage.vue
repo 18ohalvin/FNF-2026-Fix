@@ -6,21 +6,9 @@
       <div class="banner-container">
         <img
           src="../assets/event-banner.png"
-          alt="Wet Market: Art Market A Creative's Pop-Up! April 24-26"
+          alt="The 707 Company - F+F Sale 2026 Friends and Family | 2-6 September 2026 Plaza Senayan 4th Floor"
           class="event-banner-img"
         />
-      </div>
-
-      <!-- Sponsor Footer Row (Always fully visible above CTA) -->
-      <div class="sponsor-footer-row">
-        <span class="sponsor-label">THIS EVENT SUPPORTED BY:</span>
-        <div class="sponsor-logo-wrapper">
-          <img
-            src="../assets/sponsor-jenius.png"
-            alt="Jenius"
-            class="sponsor-logo-img"
-          />
-        </div>
       </div>
     </main>
 
@@ -64,8 +52,10 @@ const emit = defineEmits(['start'])
   min-height: 0;
   width: 100%;
   position: relative;
-  background-color: #e5e5e5;
+  background-color: #5c1b7e;
   display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
@@ -74,44 +64,8 @@ const emit = defineEmits(['start'])
   height: 100%;
   display: block;
   object-fit: cover;
-  object-position: left center;
+  object-position: center top;
   user-select: none;
   -webkit-user-drag: none;
-}
-
-.sponsor-footer-row {
-  width: 100%;
-  height: 48px;
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-sizing: border-box;
-  background-color: #f2f2f2;
-  flex-shrink: 0;
-}
-
-.sponsor-label {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 300;
-  color: #000000;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.sponsor-logo-wrapper {
-  height: 28px;
-  display: flex;
-  align-items: center;
-}
-
-.sponsor-logo-img {
-  height: 22px;
-  width: auto;
-  max-width: 105px;
-  object-fit: contain;
-  display: block;
 }
 </style>
