@@ -26,9 +26,14 @@ app.use((req, res, next) => {
 // ----------------------------------------------------
 // Staff Auth: PIN login -> bearer session token
 // ----------------------------------------------------
-const STAFF_STORE_ID = process.env.STAFF_STORE_ID || 'FNF2026'
-const STAFF_PIN = process.env.STAFF_PIN || '121314'
+const STAFF_STORE_ID = process.env.STAFF_STORE_ID
+const STAFF_PIN = process.env.STAFF_PIN
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000 // 12 hours
+
+if (!STAFF_STORE_ID || !STAFF_PIN) {
+  console.error('[FATAL] STAFF_STORE_ID and STAFF_PIN env vars must be set — refusing to start without staff credentials configured.')
+  process.exit(1)
+}
 
 const sessions = new Map() // token -> expiresAt
 
@@ -220,7 +225,7 @@ app.post('/api/reservations', async (req, res) => {
 })
 
 // 5. Venue Scanner API - Process Entrance / Exit Scan
-app.post('/api/scan', async (req, res) => {
+app.post('/api/scan', requireStaffAuth, async (req, res) => {
   try {
     let rawTicket = req.body.ticketCode || req.body.ticketId
     const mode = req.body.mode || req.body.action || 'check-in'
@@ -391,7 +396,7 @@ app.post('/api/scan', async (req, res) => {
 })
 
 // 6. Venue Scanner API - Fetch Occupancy & Security Logs
-app.get('/api/occupancy', async (req, res) => {
+app.get('/api/occupancy', requireStaffAuth, async (req, res) => {
   try {
     const stats = await db.getOccupancyStats(req.query.day)
     res.json(stats)
@@ -402,7 +407,7 @@ app.get('/api/occupancy', async (req, res) => {
 })
 
 // 7. Reset Occupancy Data
-app.post('/api/occupancy/reset', async (req, res) => {
+app.post('/api/occupancy/reset', requireStaffAuth, async (req, res) => {
   try {
     await db.resetOccupancy()
     res.json({ success: true, occupancy: 0, capacity: 100 })
@@ -413,7 +418,7 @@ app.post('/api/occupancy/reset', async (req, res) => {
 })
 
 // 8. Analytics Dashboard API Endpoint
-app.get('/api/analytics', async (req, res) => {
+app.get('/api/analytics', requireStaffAuth, async (req, res) => {
   try {
     const analytics = await db.getAnalyticsData(req.query.day || req.query.date)
     res.json(analytics)
@@ -424,7 +429,7 @@ app.get('/api/analytics', async (req, res) => {
 })
 
 // 9. Customer Database List API Endpoint
-app.get('/api/guests/list', async (req, res) => {
+app.get('/api/guests/list', requireStaffAuth, async (req, res) => {
   try {
     const { search, filter, day } = req.query
     const guests = await db.getGuestsList({ search, filter, day })
@@ -436,7 +441,7 @@ app.get('/api/guests/list', async (req, res) => {
 })
 
 // 10. Manual Override Action API Endpoint (Force Out / Check In)
-app.post('/api/guests/override', async (req, res) => {
+app.post('/api/guests/override', requireStaffAuth, async (req, res) => {
   try {
     const { phone, action } = req.body // action: 'force-out' | 'check-in'
     if (!phone) {
@@ -517,14 +522,14 @@ const handleDeleteGuest = async (phoneParam, res) => {
 }
 
 // 11. Manual Edit / Update Guest Endpoints (PUT & POST)
-app.put('/api/guests/:phone', (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
-app.post('/api/guests/:phone/update', (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
-app.post('/api/guests/update', (req, res) => handleUpdateGuest(req.body.phone, req.body, res))
+app.put('/api/guests/:phone', requireStaffAuth, (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
+app.post('/api/guests/:phone/update', requireStaffAuth, (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
+app.post('/api/guests/update', requireStaffAuth, (req, res) => handleUpdateGuest(req.body.phone, req.body, res))
 
 // 12. Delete Guest API Endpoints (DELETE & POST)
-app.delete('/api/guests/:phone', (req, res) => handleDeleteGuest(req.params.phone, res))
-app.post('/api/guests/:phone/delete', (req, res) => handleDeleteGuest(req.params.phone, res))
-app.post('/api/guests/delete', (req, res) => handleDeleteGuest(req.body.phone, res))
+app.delete('/api/guests/:phone', requireStaffAuth, (req, res) => handleDeleteGuest(req.params.phone, res))
+app.post('/api/guests/:phone/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.params.phone, res))
+app.post('/api/guests/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.body.phone, res))
 
 // Serve Static Frontend Assets from /dist
 app.use(express.static(distPath))
