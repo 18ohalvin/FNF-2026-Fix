@@ -126,7 +126,7 @@ import ScannerPage from './components/ScannerPage.vue'
 import AnalyticsPage from './components/AnalyticsPage.vue'
 import CustomerDatabasePage from './components/CustomerDatabasePage.vue'
 import AdminLoginPage from './components/AdminLoginPage.vue'
-import { apiCheckPhone, apiSaveGuest, apiCreateReservation } from './api/client'
+import { apiCheckPhone, apiSaveGuest, apiCreateReservation, apiStaffLogout } from './api/client'
 
 // Registered Mock Database Record
 const REGISTERED_VIP_DATABASE = [
@@ -191,8 +191,7 @@ const handleLoginSuccess = () => {
 }
 
 const handleLogout = () => {
-  localStorage.removeItem('staff_auth')
-  sessionStorage.removeItem('staff_auth')
+  apiStaffLogout()
   currentPage.value = 'login'
   history.replaceState({ page: 'login' }, '', '/admin')
 }

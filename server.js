@@ -1,5 +1,6 @@
 import express from 'express'
 import path from 'path'
+import crypto from 'crypto'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import db from './src/server/db.js'
@@ -13,6 +14,54 @@ const distPath = path.resolve(process.cwd(), 'dist')
 // Middleware
 app.use(cors())
 app.use(express.json())
+
+// ----------------------------------------------------
+// Staff Auth: PIN login -> bearer session token
+// ----------------------------------------------------
+const STAFF_STORE_ID = process.env.STAFF_STORE_ID
+const STAFF_PIN = process.env.STAFF_PIN
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000 // 12 hours
+
+if (!STAFF_STORE_ID || !STAFF_PIN) {
+  console.error('[FATAL] STAFF_STORE_ID and STAFF_PIN env vars must be set — refusing to start without staff credentials configured.')
+  process.exit(1)
+}
+
+const sessions = new Map() // token -> expiresAt
+
+function requireStaffAuth(req, res, next) {
+  const authHeader = req.headers.authorization || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const expiresAt = token && sessions.get(token)
+
+  if (!expiresAt || expiresAt < Date.now()) {
+    if (token) sessions.delete(token)
+    return res.status(401).json({ error: 'Unauthorized: staff login required' })
+  }
+
+  // Sliding expiry
+  sessions.set(token, Date.now() + SESSION_TTL_MS)
+  next()
+}
+
+app.post('/api/staff/login', (req, res) => {
+  const { storeId, pin } = req.body || {}
+
+  if (storeId !== STAFF_STORE_ID || pin !== STAFF_PIN) {
+    return res.status(401).json({ success: false, error: 'Invalid Store ID or PIN. Please check your credentials.' })
+  }
+
+  const token = crypto.randomBytes(32).toString('hex')
+  sessions.set(token, Date.now() + SESSION_TTL_MS)
+  res.json({ success: true, token })
+})
+
+app.post('/api/staff/logout', (req, res) => {
+  const authHeader = req.headers.authorization || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  if (token) sessions.delete(token)
+  res.json({ success: true })
+})
 
 // ----------------------------------------------------
 // REST API Routes
@@ -234,7 +283,7 @@ function formatBookedDays(bookedDates) {
 }
 
 // 5. Venue Scanner API - Process Entrance / Exit Scan
-app.post('/api/scan', (req, res) => {
+app.post('/api/scan', requireStaffAuth, (req, res) => {
   try {
     let rawTicket = req.body.ticketCode || req.body.ticketId
     const mode = req.body.mode || req.body.action || 'check-in'
@@ -411,7 +460,7 @@ app.post('/api/scan', (req, res) => {
 })
 
 // 6. Venue Scanner API - Fetch Occupancy & Security Logs
-app.get('/api/occupancy', (req, res) => {
+app.get('/api/occupancy', requireStaffAuth, (req, res) => {
   try {
     const current = getLiveOccupancy()
 
@@ -440,7 +489,7 @@ app.get('/api/occupancy', (req, res) => {
 })
 
 // 7. Reset Occupancy Data
-app.post('/api/occupancy/reset', (req, res) => {
+app.post('/api/occupancy/reset', requireStaffAuth, (req, res) => {
   try {
     db.prepare('DELETE FROM scans').run()
     res.json({ success: true, occupancy: 0, capacity: 100 })
@@ -451,7 +500,7 @@ app.post('/api/occupancy/reset', (req, res) => {
 })
 
 // 8. Analytics Dashboard API Endpoint
-app.get('/api/analytics', (req, res) => {
+app.get('/api/analytics', requireStaffAuth, (req, res) => {
   try {
     const { date, day } = req.query
     const currentOccupancy = getLiveOccupancy()
@@ -552,7 +601,7 @@ app.get('/api/analytics', (req, res) => {
 })
 
 // 9. Customer Database List API Endpoint
-app.get('/api/guests/list', (req, res) => {
+app.get('/api/guests/list', requireStaffAuth, (req, res) => {
   try {
     const { search, filter, day } = req.query
     let sql = `
@@ -607,7 +656,7 @@ app.get('/api/guests/list', (req, res) => {
 })
 
 // 10. Manual Override Action API Endpoint (Force Out / Check In)
-app.post('/api/guests/override', (req, res) => {
+app.post('/api/guests/override', requireStaffAuth, (req, res) => {
   try {
     const { phone, action } = req.body // action: 'force-out' | 'check-in'
     if (!phone) {
@@ -721,14 +770,14 @@ const handleDeleteGuest = (phoneParam, res) => {
 }
 
 // 11. Manual Edit / Update Guest Endpoints (PUT & POST)
-app.put('/api/guests/:phone', (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
-app.post('/api/guests/:phone/update', (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
-app.post('/api/guests/update', (req, res) => handleUpdateGuest(req.body.phone, req.body, res))
+app.put('/api/guests/:phone', requireStaffAuth, (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
+app.post('/api/guests/:phone/update', requireStaffAuth, (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
+app.post('/api/guests/update', requireStaffAuth, (req, res) => handleUpdateGuest(req.body.phone, req.body, res))
 
 // 12. Delete Guest API Endpoints (DELETE & POST)
-app.delete('/api/guests/:phone', (req, res) => handleDeleteGuest(req.params.phone, res))
-app.post('/api/guests/:phone/delete', (req, res) => handleDeleteGuest(req.params.phone, res))
-app.post('/api/guests/delete', (req, res) => handleDeleteGuest(req.body.phone, res))
+app.delete('/api/guests/:phone', requireStaffAuth, (req, res) => handleDeleteGuest(req.params.phone, res))
+app.post('/api/guests/:phone/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.params.phone, res))
+app.post('/api/guests/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.body.phone, res))
 
 // Serve Static Frontend Assets from /dist
 app.use(express.static(distPath))

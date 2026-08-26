@@ -100,6 +100,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { apiStaffLogin } from '../api/client'
 
 const emit = defineEmits(['login-success'])
 
@@ -109,28 +110,27 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const isSupportModalOpen = ref(false)
 
-const VALID_STORE_ID = 'FNF2026'
-const VALID_PIN = '121314'
-
-const handleSignIn = () => {
+const handleSignIn = async () => {
   errorMessage.value = ''
   isLoading.value = true
 
-  setTimeout(() => {
-    const trimmedId = storeId.value.trim().toUpperCase()
-    const trimmedPin = pin.value.trim()
+  const trimmedId = storeId.value.trim().toUpperCase()
+  const trimmedPin = pin.value.trim()
 
-    if (trimmedId === VALID_STORE_ID && trimmedPin === VALID_PIN) {
-      // Save authenticated session in storage
-      localStorage.setItem('staff_auth', 'true')
-      sessionStorage.setItem('staff_auth', 'true')
-      localStorage.setItem('staff_store_id', trimmedId)
-      emit('login-success')
-    } else {
-      errorMessage.value = 'Invalid Store ID or PIN. Please check your credentials.'
-    }
-    isLoading.value = false
-  }, 400)
+  const result = await apiStaffLogin(trimmedId, trimmedPin)
+
+  if (result.success) {
+    // Save authenticated session (token verified server-side)
+    localStorage.setItem('staff_auth', 'true')
+    sessionStorage.setItem('staff_auth', 'true')
+    localStorage.setItem('staff_token', result.token)
+    sessionStorage.setItem('staff_token', result.token)
+    localStorage.setItem('staff_store_id', trimmedId)
+    emit('login-success')
+  } else {
+    errorMessage.value = result.error || 'Invalid Store ID or PIN. Please check your credentials.'
+  }
+  isLoading.value = false
 }
 
 const handleContactSupport = () => {

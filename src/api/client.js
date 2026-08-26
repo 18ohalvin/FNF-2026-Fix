@@ -2,8 +2,49 @@ import { env } from '../config/env'
 
 const API_BASE = env.apiBaseUrl || ''
 
+function getStaffToken() {
+  return localStorage.getItem('staff_token') || sessionStorage.getItem('staff_token') || ''
+}
+
+function clearStaffSession() {
+  localStorage.removeItem('staff_auth')
+  localStorage.removeItem('staff_token')
+  localStorage.removeItem('staff_store_id')
+  sessionStorage.removeItem('staff_auth')
+  sessionStorage.removeItem('staff_token')
+}
+
 /**
- * Robust API fetcher with auto-fallback to port 7070 if current origin (e.g. port 80 / dev) 
+ * Staff login: verified server-side, returns a bearer session token
+ */
+export async function apiStaffLogin(storeId, pin) {
+  const res = await fetch(`${API_BASE}/api/staff/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ storeId, pin })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data.success) {
+    return { success: false, error: data?.error || 'Invalid Store ID or PIN. Please check your credentials.' }
+  }
+  return data
+}
+
+export async function apiStaffLogout() {
+  try {
+    await fetchWithApiFallback('/api/staff/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getStaffToken()}` }
+    })
+  } catch (e) {
+    // Ignore network errors on logout — session is cleared client-side regardless
+  } finally {
+    clearStaffSession()
+  }
+}
+
+/**
+ * Robust API fetcher with auto-fallback to port 7070 if current origin (e.g. port 80 / dev)
  * lacks a reverse proxy or returns SPA HTML index.
  */
 async function fetchWithApiFallback(urlPath, options = {}) {
@@ -11,16 +52,17 @@ async function fetchWithApiFallback(urlPath, options = {}) {
   try {
     const res = await fetch(primaryUrl, options)
     const contentType = res.headers.get('content-type') || ''
-    
+
     // If web server returned HTML (SPA index) instead of API JSON:
     if (contentType.includes('text/html') && urlPath.startsWith('/api/')) {
       throw new Error('Received HTML instead of JSON API response')
     }
-    
+
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
       const err = new Error(errData?.error || `HTTP ${res.status}`)
       err.data = errData
+      err.status = res.status
       throw err
     }
     return await res.json()
@@ -37,6 +79,28 @@ async function fetchWithApiFallback(urlPath, options = {}) {
       } catch (e) {}
     }
     throw primaryErr
+  }
+}
+
+/**
+ * Same as fetchWithApiFallback, but for staff-only endpoints: attaches the
+ * bearer session token and forces a re-login if the session is invalid/expired.
+ */
+async function fetchStaffApi(urlPath, options = {}) {
+  try {
+    return await fetchWithApiFallback(urlPath, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${getStaffToken()}`
+      }
+    })
+  } catch (err) {
+    if (err.status === 401) {
+      clearStaffSession()
+      window.location.href = '/admin'
+    }
+    throw err
   }
 }
 
@@ -118,7 +182,7 @@ export async function apiFetchDashboardStats() {
  */
 export async function apiProcessScan({ ticketCode, mode = 'check-in', currentDay = 'Day 1' }) {
   try {
-    return await fetchWithApiFallback('/api/scan', {
+    return await fetchStaffApi('/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticketCode, mode, currentDay })
@@ -140,7 +204,7 @@ export async function apiProcessScan({ ticketCode, mode = 'check-in', currentDay
 export async function apiFetchOccupancy(dayStr = '') {
   try {
     const query = dayStr ? `?day=${encodeURIComponent(dayStr)}` : ''
-    return await fetchWithApiFallback(`/api/occupancy${query}`)
+    return await fetchStaffApi(`/api/occupancy${query}`)
   } catch (err) {
     console.warn('[API Client] Occupancy endpoint fallback:', err)
     return {
@@ -159,7 +223,7 @@ export async function apiFetchOccupancy(dayStr = '') {
  */
 export async function apiResetOccupancy() {
   try {
-    return await fetchWithApiFallback('/api/occupancy/reset', { method: 'POST' })
+    return await fetchStaffApi('/api/occupancy/reset', { method: 'POST' })
   } catch (err) {
     return { success: true, occupancy: 0, capacity: 100 }
   }
@@ -176,7 +240,7 @@ export async function apiFetchAnalytics(dateStr) {
       params.append('day', dateStr)
     }
     const query = params.toString() ? `?${params.toString()}` : ''
-    return await fetchWithApiFallback(`/api/analytics${query}`)
+    return await fetchStaffApi(`/api/analytics${query}`)
   } catch (err) {
     console.warn('[API Client] Analytics endpoint fallback:', err)
     return {
@@ -204,7 +268,7 @@ export async function apiFetchCustomerDatabase(searchQuery = '', filterType = ''
       params.append('day', dayStr)
     }
     const query = params.toString() ? `?${params.toString()}` : ''
-    const data = await fetchWithApiFallback(`/api/guests/list${query}`)
+    const data = await fetchStaffApi(`/api/guests/list${query}`)
     return data
   } catch (err) {
     console.error('[API Client] Guests list fetch error:', err)
@@ -217,7 +281,7 @@ export async function apiFetchCustomerDatabase(searchQuery = '', filterType = ''
  */
 export async function apiOverrideGuestStatus(phone, action) {
   try {
-    return await fetchWithApiFallback('/api/guests/override', {
+    return await fetchStaffApi('/api/guests/override', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, action })
@@ -233,14 +297,14 @@ export async function apiOverrideGuestStatus(phone, action) {
  */
 export async function apiUpdateGuest(phone, updateData) {
   try {
-    return await fetchWithApiFallback(`/api/guests/${encodeURIComponent(phone)}`, {
+    return await fetchStaffApi(`/api/guests/${encodeURIComponent(phone)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData)
     })
   } catch (err) {
     try {
-      return await fetchWithApiFallback('/api/guests/update', {
+      return await fetchStaffApi('/api/guests/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, ...updateData })
@@ -257,12 +321,12 @@ export async function apiUpdateGuest(phone, updateData) {
  */
 export async function apiDeleteGuest(phone) {
   try {
-    return await fetchWithApiFallback(`/api/guests/${encodeURIComponent(phone)}`, {
+    return await fetchStaffApi(`/api/guests/${encodeURIComponent(phone)}`, {
       method: 'DELETE'
     })
   } catch (err) {
     try {
-      return await fetchWithApiFallback('/api/guests/delete', {
+      return await fetchStaffApi('/api/guests/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone })
