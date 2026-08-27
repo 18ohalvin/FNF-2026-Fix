@@ -79,15 +79,15 @@
             <img src="../assets/icon-info.svg" alt="Information" class="info-icon" />
           </div>
           <div class="notice-text-content">
-            <p class="notice-heading">SAVE YOUR E-PASS</p>
+            <p class="notice-heading">DIDN'T RECEIVE THE EMAIL?</p>
             <p class="notice-body">
-              Tap the button below to download and save your E-Pass PDF to your device. Present it at the entrance checkpoint. Need help?
+              Check your spam folder or
               <a
                 href="https://wa.me/6281277208270"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="contact-support-link"
-              >contact support</a>
+              >contact support.</a>
             </p>
           </div>
         </div>
