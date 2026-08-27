@@ -348,7 +348,6 @@ const handleCheckNumber = async () => {
     if (result.found) {
       const role = result.guest?.role || defaultRole
       activeUserData.value = { ...result.guest, role, isRegistered: true }
-      showToast(`Verified: ${role.includes('VIP') ? 'VIP Guest' : 'Public Guest'} record found.`)
     } else {
       activeUserData.value = {
         phone: rawDigits,
@@ -359,7 +358,6 @@ const handleCheckNumber = async () => {
         role: defaultRole,
         isRegistered: false
       }
-      showToast('Unregistered number. Please complete your details.')
     }
 
     navigateTo('review-details')
@@ -374,7 +372,6 @@ const handleCheckNumber = async () => {
       role: defaultRole,
       isRegistered: false
     }
-    showToast('Notice: Using default profile mode.')
     navigateTo('review-details')
   }
 }
@@ -441,7 +438,6 @@ const handleDatesSubmit = async (dates) => {
     activeUserData.value = { ...guestPayload, access_id: accessId }
   }
 
-  showToast('Ticket Pass Generated & Synced!')
   navigateTo('ticket-summary')
 }
 </script>

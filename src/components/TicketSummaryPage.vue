@@ -88,9 +88,9 @@
             <img src="../assets/icon-info.svg" alt="Information" class="info-icon" />
           </div>
           <div class="notice-text-content">
-            <p class="notice-heading">DIDN'T RECEIVE THE EMAIL?</p>
+            <p class="notice-heading">SAVE YOUR E-PASS</p>
             <p class="notice-body">
-              Check your spam folder or
+              Tap the button below to download and save your E-Pass PDF to your device. Present it at the entrance checkpoint. Need to fix your email?
               <button
                 type="button"
                 class="update-email-link-btn"
@@ -102,11 +102,12 @@
       </div>
     </main>
 
-    <!-- Sticky Bottom CTA Button: DONE -->
+    <!-- Sticky Bottom CTA Button: DOWNLOAD E-PASS -->
     <CtaButton
       :active="true"
-      label="DONE"
-      @click="emit('home')"
+      :loading="isDownloading"
+      :label="hasDownloaded ? 'DOWNLOAD AGAIN' : 'DOWNLOAD E-PASS'"
+      @click="handleDownloadEPassPdf"
     />
 
     <!-- Update Guest Email Modal -->
