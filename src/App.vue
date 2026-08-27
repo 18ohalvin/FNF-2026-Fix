@@ -97,6 +97,7 @@
     <template v-else-if="currentPage === 'ticket-summary'">
       <TicketSummaryPage
         :user-details="activeUserData"
+        :selected-dates="selectedEventDates"
         :selected-date-ids="selectedEventDates"
         @home="handleGoHome"
       />

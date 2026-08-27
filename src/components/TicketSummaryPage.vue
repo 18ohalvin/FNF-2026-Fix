@@ -2,22 +2,24 @@
   <div class="ticket-summary-wrapper">
     <!-- Main Scrollable Content -->
     <main class="ticket-content">
-      <!-- Success Title -->
+      <!-- Success Title (Figma Node 213:996) -->
       <div class="success-title-box">
-        <h1 class="success-line">SUCCESS.</h1>
-        <h1 class="success-line">YOUR PASS HAS</h1>
-        <h1 class="success-line">BEEN SENT.</h1>
+        <p class="success-line">SUCCESS.</p>
+        <p class="success-line">YOUR PASS HAS</p>
+        <p class="success-line">BEEN SENT.</p>
       </div>
 
-      <!-- Identity & Details Section -->
+      <!-- Identity & Details Section (Figma Node 213:998) -->
       <div class="identity-section">
         <!-- Row 1: Guest Name & Venue -->
         <div class="two-col-row">
           <div class="info-block">
             <span class="info-label">GUEST NAME</span>
-            <span class="info-value guest-name">
-              {{ formattedGuestName }}
-            </span>
+            <div class="info-value guest-name-value">
+              <p v-for="(line, idx) in guestNameLines" :key="idx" class="guest-name-line">
+                {{ line }}
+              </p>
+            </div>
           </div>
 
           <div class="info-block">
@@ -130,7 +132,11 @@ const props = defineProps({
   },
   selectedDates: {
     type: Array,
-    default: () => ['day-1']
+    default: () => []
+  },
+  selectedDateIds: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -142,31 +148,67 @@ const hasDownloaded = ref(false)
 // Resolve selected event date objects for display
 const resolvedSelectedDates = computed(() => {
   const datesMap = {
-    'day-1': { id: 'day-1', date: 'WEDNESDAY, 2 SEP', day: 'DAY 1 (VIP)' },
-    'day-2': { id: 'day-2', date: 'THURSDAY, 3 SEP', day: 'DAY 2' },
-    'day-3': { id: 'day-3', date: 'FRIDAY, 4 SEP', day: 'DAY 3' },
-    'day-4': { id: 'day-4', date: 'SATURDAY, 5 SEP', day: 'DAY 4' },
-    'day-5': { id: 'day-5', date: 'SUNDAY, 6 SEP', day: 'DAY 5' }
+    'day-1': { id: 'day-1', date: '2 September 2026', day: 'Day 1 (VIP)' },
+    'day-2': { id: 'day-2', date: '3 September 2026', day: 'Day 2' },
+    'day-3': { id: 'day-3', date: '4 September 2026', day: 'Day 3' },
+    'day-4': { id: 'day-4', date: '5 September 2026', day: 'Day 4' },
+    'day-5': { id: 'day-5', date: '6 September 2026', day: 'Day 5' }
   }
 
-  const rawDates = Array.isArray(props.selectedDates) && props.selectedDates.length > 0
+  const rawDates = (Array.isArray(props.selectedDates) && props.selectedDates.length > 0)
     ? props.selectedDates
-    : (props.userDetails.selectedDates || ['day-1'])
+    : (Array.isArray(props.selectedDateIds) && props.selectedDateIds.length > 0)
+      ? props.selectedDateIds
+      : (props.userDetails?.selectedDates || props.userDetails?.selected_dates || ['day-1'])
 
-  return rawDates.map(key => {
+  let arr = Array.isArray(rawDates) ? rawDates : []
+  if (typeof rawDates === 'string') {
+    try {
+      arr = JSON.parse(rawDates)
+    } catch (e) {
+      arr = rawDates.split(',').map(s => s.trim())
+    }
+  }
+
+  return arr.map(key => {
     if (typeof key === 'object' && key.day) {
       return key
     }
-    return datesMap[key] || { id: key, date: 'EVENT DATE', day: key.toUpperCase() }
+    return datesMap[key] || { id: key, date: 'Event Date', day: key.toUpperCase() }
   })
+})
+
+// Split guest name into lines (e.g. Line 1: "MR. ALVIN", Line 2: "DECOROUS")
+const guestNameLines = computed(() => {
+  const sal = (props.userDetails.salutation || '').trim()
+  const first = (props.userDetails.firstName || props.userDetails.first_name || '').toUpperCase().trim()
+  const last = (props.userDetails.lastName || props.userDetails.last_name || '').toUpperCase().trim()
+
+  if (sal && first && last) {
+    const formattedSal = sal.endsWith('.') ? sal : sal + '.'
+    return [`${formattedSal} ${first}`, last]
+  } else if (first && last) {
+    return [first, last]
+  } else if (first) {
+    return [first]
+  } else {
+    const rawFull = formattedGuestName.value || 'GUEST'
+    const parts = rawFull.split(/\s+/).filter(Boolean)
+    if (parts.length === 2) {
+      return [parts[0], parts[1]]
+    } else if (parts.length > 2) {
+      return [parts.slice(0, parts.length - 1).join(' '), parts[parts.length - 1]]
+    }
+    return [rawFull]
+  }
 })
 
 // Guest Name Formatted (e.g. "MR. ALVIN DECOROUS")
 const formattedGuestName = computed(() => {
   let sal = (props.userDetails.salutation || 'Mr.').toUpperCase()
   if (!sal.endsWith('.')) sal = `${sal}.`
-  const first = (props.userDetails.firstName || 'ALVIN').toUpperCase()
-  const last = (props.userDetails.lastName || 'DECOROUS').toUpperCase()
+  const first = (props.userDetails.firstName || props.userDetails.first_name || 'ALVIN').toUpperCase()
+  const last = (props.userDetails.lastName || props.userDetails.last_name || 'DECOROUS').toUpperCase()
   return `${sal} ${first} ${last}`.trim()
 })
 
@@ -252,7 +294,6 @@ const handleDownloadEPassPdf = async () => {
     const qrBoxSize = 195
     const qrRadius = 5
 
-    // Rounded rectangle helper
     const drawRoundRect = (c, x, y, w, h, r) => {
       c.beginPath()
       c.moveTo(x + r, y)
@@ -288,34 +329,9 @@ const handleDownloadEPassPdf = async () => {
     ctx.fillText('VENUE', 216, 344)
 
     // Guest Name Splitting: Ensures 2-word names occupy Line 1 and Line 2 without blank space
-    const sal = (props.userDetails.salutation || '').trim()
-    const first = (props.userDetails.firstName || '').toUpperCase().trim()
-    const last = (props.userDetails.lastName || '').toUpperCase().trim()
-
-    let nameLine1 = ''
-    let nameLine2 = ''
-
-    if (sal && first && last) {
-      const formattedSal = sal.endsWith('.') ? sal : sal + '.'
-      nameLine1 = `${formattedSal} ${first}`
-      nameLine2 = last
-    } else if (first && last) {
-      nameLine1 = first
-      nameLine2 = last
-    } else {
-      const rawFull = formattedGuestName.value || 'GUEST'
-      const parts = rawFull.split(/\s+/).filter(Boolean)
-      if (parts.length === 2) {
-        nameLine1 = parts[0]
-        nameLine2 = parts[1]
-      } else if (parts.length > 2) {
-        nameLine1 = parts.slice(0, parts.length - 1).join(' ')
-        nameLine2 = parts[parts.length - 1]
-      } else {
-        nameLine1 = parts[0] || 'GUEST'
-        nameLine2 = ''
-      }
-    }
+    const nameLines = guestNameLines.value
+    const nameLine1 = nameLines[0] || formattedGuestName.value || 'GUEST'
+    const nameLine2 = nameLines[1] || ''
 
     ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillText(nameLine1, 24, 368)
@@ -332,15 +348,14 @@ const handleDownloadEPassPdf = async () => {
     ctx.fillText('ACCESS ID', 216, 438)
 
     ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+    const selectedDaysList = resolvedSelectedDates.value.map(d => d.day.replace(' (VIP)', ''))
     let validForStr = ''
-    if (isVip) {
-      validForStr = resolvedSelectedDates.value.map(d => d.day).join(', ') || 'Day 1'
+    if (selectedDaysList.length >= 5 || (selectedDaysList.length >= 4 && !isVip)) {
+      validForStr = 'ALL DAY'
+    } else if (selectedDaysList.length > 0) {
+      validForStr = selectedDaysList.join(', ')
     } else {
-      if (resolvedSelectedDates.value.length >= 4) {
-        validForStr = 'ALL DAY'
-      } else {
-        validForStr = resolvedSelectedDates.value.map(d => d.day).join(', ') || 'Day 2'
-      }
+      validForStr = isVip ? 'Day 1' : 'Day 2'
     }
     ctx.fillText(validForStr, 24, 462)
     ctx.fillText(accessId, 216, 462)
@@ -398,68 +413,62 @@ const handleDownloadEPassPdf = async () => {
   flex-direction: column;
 }
 
+/* Success Title (Figma Node 213:996) */
 .success-title-box {
+  margin-bottom: 34px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
+  flex-direction: column;
 }
 
-.check-icon-holder {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.check-icon {
-  width: 24px;
-  height: 24px;
+.success-line {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 32px;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin: 0;
   display: block;
 }
 
-.page-title {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 18px;
-  font-weight: 500;
-  color: #000000;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
-.summary-data-list {
+/* Identity & Details Section (Figma Node 213:998) */
+.identity-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 32px;
 }
 
 .two-col-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  display: flex;
+  gap: 32px;
+  width: 100%;
+}
+
+.two-col-row > .info-block {
+  flex: 1;
+  min-width: 0;
 }
 
 .info-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .info-label {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 300;
   color: #000000;
   line-height: 16px;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .info-value {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: #000000;
   line-height: 20px;
@@ -495,6 +504,7 @@ const handleDownloadEPassPdf = async () => {
 
 .access-id-value {
   letter-spacing: 0.02em;
+  line-height: 16px;
 }
 
 .email-block {
@@ -504,6 +514,7 @@ const handleDownloadEPassPdf = async () => {
 .email-value {
   text-transform: none; /* preserve lowercase email */
   word-break: break-all;
+  line-height: 16px;
 }
 
 .access-dates-block {
