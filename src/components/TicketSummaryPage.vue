@@ -91,13 +91,6 @@
             </p>
           </div>
         </div>
-
-        <!-- Finish / Return Home Option (Shows after downloading) -->
-        <div v-if="hasDownloaded" class="finish-flow-wrapper">
-          <button type="button" class="finish-flow-btn" @click="emit('home')">
-            DONE / RETURN TO HOME
-          </button>
-        </div>
       </div>
     </main>
 
@@ -621,35 +614,5 @@ const handleDownloadEPassPdf = async () => {
   text-decoration: underline;
   text-underline-position: from-font;
   cursor: pointer;
-}
-
-.finish-flow-wrapper {
-  width: 100%;
-  margin-top: 8px;
-}
-
-.finish-flow-btn {
-  width: 100%;
-  height: 48px;
-  background-color: transparent;
-  border: 1px solid #000000;
-  border-radius: 0;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: #000000;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-sizing: border-box;
-}
-
-.finish-flow-btn:hover {
-  background-color: #000000;
-  color: #ffffff;
 }
 </style>

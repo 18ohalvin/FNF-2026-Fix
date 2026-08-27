@@ -5,7 +5,7 @@
       <!-- Static Event Banner Poster (Fill Screen) -->
       <div class="banner-container">
         <img
-          src="../assets/event-banner.png"
+          :src="bannerSource"
           alt="The 707 Company - F+F Sale 2026 (2-6 September 2026)"
           class="event-banner-img"
         />
@@ -22,9 +22,27 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import CtaButton from './CtaButton.vue'
+import publicBanner from '../assets/event-banner.png'
+import vipBanner from '../assets/event-banner-vip.jpg'
+
+const props = defineProps({
+  registrationType: {
+    type: String,
+    default: 'vip'
+  }
+})
 
 const emit = defineEmits(['start'])
+
+const isVip = computed(() => {
+  return props.registrationType !== 'public'
+})
+
+const bannerSource = computed(() => {
+  return isVip.value ? vipBanner : publicBanner
+})
 </script>
 
 <style scoped>

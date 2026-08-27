@@ -38,6 +38,7 @@
     <!-- PAGE 0: Landing Page (Node 241:1383) -->
     <template v-if="currentPage === 'landing'">
       <LandingPage
+        :registration-type="registrationType"
         @start="handleStartAccess"
       />
     </template>
