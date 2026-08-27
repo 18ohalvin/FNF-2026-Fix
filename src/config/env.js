@@ -17,6 +17,6 @@ export const env = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '',
 
   // Customer Support Contacts
-  whatsappSupportNumber: import.meta.env.VITE_WHATSAPP_SUPPORT_NUMBER || '6281707909707',
-  whatsappSupportUrl: `https://wa.me/${import.meta.env.VITE_WHATSAPP_SUPPORT_NUMBER || '6281707909707'}`
+  whatsappSupportNumber: import.meta.env.VITE_WHATSAPP_SUPPORT_NUMBER || '6281277208270',
+  whatsappSupportUrl: `https://wa.me/${import.meta.env.VITE_WHATSAPP_SUPPORT_NUMBER || '6281277208270'}`
 }

@@ -115,7 +115,7 @@ class MailerService {
     </div>
     <div class="footer">
       © 2026 707 Event Management. All rights reserved.<br>
-      Need assistance? Contact support at support@707.co.id
+      Need assistance? Contact support at support@707.co.id or via WhatsApp at <a href="https://wa.me/6281277208270" style="color: #000000; font-weight: 600; text-decoration: underline;">+62 812-7720-8270</a>
     </div>
   </div>
 </body>

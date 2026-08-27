@@ -81,7 +81,7 @@
             <p class="notice-body">
               Check your spam folder or
               <a
-                href="https://wa.me/6281707909707"
+                href="https://wa.me/6281277208270"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="contact-support-link"
