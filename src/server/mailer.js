@@ -1,11 +1,14 @@
 import dotenv from 'dotenv'
 import QRCode from 'qrcode'
 import nodemailer from 'nodemailer'
+import { jsPDF } from 'jspdf'
+import fs from 'fs'
+import path from 'path'
 
 dotenv.config()
 
 /**
- * SMTP Transactional Email Dispatcher for 707 Event E-Passes
+ * SMTP Transactional Email Dispatcher for 707 Event E-Passes with PDF Attachment
  */
 class MailerService {
   constructor() {
@@ -54,12 +57,153 @@ class MailerService {
   }
 
   /**
+   * Generate official PDF E-Pass Buffer with clickable promotional banner
+   */
+  async generatePassPdfBuffer({ guestName, accessId, role, selectedDates }) {
+    const isVip = (role || '').toUpperCase().includes('VIP')
+    const width = 402
+    const height = 860
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'pt',
+      format: [width, height]
+    })
+
+    // 1. Background Fill
+    if (isVip) {
+      doc.setFillColor(0, 0, 0)
+    } else {
+      doc.setFillColor(242, 242, 242)
+    }
+    doc.rect(0, 0, width, height, 'F')
+
+    // 2. Logo
+    try {
+      const logoFile = path.resolve(process.cwd(), 'src/assets/logo-707.png')
+      if (fs.existsSync(logoFile)) {
+        const logoBuf = fs.readFileSync(logoFile)
+        const logoBase64 = 'data:image/png;base64,' + logoBuf.toString('base64')
+        doc.addImage(logoBase64, 'PNG', 24, 15.5, 53, 17)
+      }
+    } catch (e) {
+      console.warn('[PDF Gen]: Logo embed error:', e.message)
+    }
+
+    // 3. Title Row
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(18)
+    if (isVip) {
+      doc.setTextColor(255, 255, 255)
+      doc.text('VIP GUEST', 24, 76)
+      doc.setFont('Helvetica', 'normal')
+      doc.text('YOUR ACCESS', 378, 76, { align: 'right' })
+    } else {
+      doc.setTextColor(0, 0, 0)
+      doc.text('PUBLIC GUEST', 24, 76)
+      doc.setFont('Helvetica', 'normal')
+      doc.text('YOUR ACCESS', 378, 76, { align: 'right' })
+    }
+
+    // 4. QR Code Box
+    doc.setFillColor(242, 242, 242)
+    doc.roundedRect(24, 108, 195, 195, 5, 5, 'F')
+    doc.setDrawColor(isVip ? 255 : 0, isVip ? 255 : 0, isVip ? 255 : 0)
+    doc.setLineWidth(0.5)
+    doc.roundedRect(24, 108, 195, 195, 5, 5, 'S')
+
+    // Generate high-res QR code
+    const qrDataUrl = await QRCode.toDataURL(accessId, {
+      width: 500,
+      margin: 0,
+      color: { dark: '#000000', light: '#f2f2f2' }
+    })
+    doc.addImage(qrDataUrl, 'PNG', 37, 121, 169, 169)
+
+    // 5. Identity Details
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(12)
+    doc.setTextColor(isVip ? 255 : 0, isVip ? 255 : 0, isVip ? 255 : 0)
+    doc.text('GUEST NAME', 24, 344)
+    doc.text('VENUE', 216, 344)
+
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(16)
+
+    // Split name into lines if multi-word
+    const parts = (guestName || 'GUEST').split(/\s+/).filter(Boolean)
+    let line1 = guestName
+    let line2 = ''
+    if (parts.length === 2) {
+      line1 = parts[0]
+      line2 = parts[1]
+    } else if (parts.length > 2) {
+      line1 = parts.slice(0, parts.length - 1).join(' ')
+      line2 = parts[parts.length - 1]
+    }
+
+    doc.text(line1, 24, 368)
+    if (line2) {
+      doc.text(line2, 24, 390)
+    }
+
+    doc.text('PLAZA SENAYAN', 216, 368)
+    doc.text('4th FLOOR', 216, 390)
+
+    // Row 2: Valid For & Access ID
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(12)
+    doc.text('VALID FOR', 24, 438)
+    doc.text('ACCESS ID', 216, 438)
+
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(16)
+    let validStr = 'Day 1'
+    if (Array.isArray(selectedDates)) {
+      validStr = selectedDates.join(', ')
+    } else if (typeof selectedDates === 'string') {
+      validStr = selectedDates
+    }
+    doc.text(validStr, 24, 462)
+    doc.text(accessId, 216, 462)
+
+    // 6. Promotional Banner with Clickable Hyperlink
+    const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
+    try {
+      const bannerFile = path.resolve(process.cwd(), 'src/assets/ad-banner.png')
+      if (fs.existsSync(bannerFile)) {
+        const bannerBuf = fs.readFileSync(bannerFile)
+        const bannerBase64 = 'data:image/png;base64,' + bannerBuf.toString('base64')
+        doc.addImage(bannerBase64, 'PNG', 24, 510, 354, 177)
+        // Clickable URL Annotation in the PDF
+        doc.link(24, 510, 354, 177, { url: promoLink })
+      }
+    } catch (e) {
+      console.warn('[PDF Gen]: Banner embed error:', e.message)
+    }
+
+    // 7. Terms & Conditions
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(12)
+    doc.text('TERMS & CONDITIONS:', 24, 720)
+    doc.setFontSize(10)
+    doc.text('Valid for one (1) person only — non-transferable.', 24, 744)
+    doc.text('Present this ticket at the entrance for scanning.', 24, 764)
+    doc.text('No re-entry once you have exited the venue.', 24, 784)
+    doc.text('Management is not liable for loss of personal belongings.', 24, 804)
+
+    const arrayBuf = doc.output('arraybuffer')
+    return Buffer.from(arrayBuf)
+  }
+
+  /**
    * Generate clean brutalist HTML email template matching 707 design
    */
-  async buildPassEmailHtml({ guestName, accessId, role, selectedDates, email, phone, qrDataUrl }) {
+  async buildPassEmailHtml({ guestName, accessId, role, selectedDates, email, phone, qrDataUrl, bannerDataUrl }) {
     const isVip = (role || '').toUpperCase().includes('VIP')
     const badgeBg = isVip ? '#000000' : '#333333'
     const validDatesHtml = this.formatDates(selectedDates)
+    const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
 
     return `
 <!DOCTYPE html>
@@ -83,6 +227,8 @@ class MailerService {
     .info-row td { padding: 12px 0; border-bottom: 1px solid #eeeeee; vertical-align: top; }
     .info-label { font-size: 11px; color: #888888; text-transform: uppercase; letter-spacing: 0.05em; width: 35%; }
     .info-val { font-size: 14px; font-weight: 600; color: #000000; }
+    .banner-container { margin: 24px 0; text-align: center; }
+    .banner-img { max-width: 100%; width: 100%; height: auto; border: 0; display: block; border-radius: 4px; }
     .terms { font-size: 11px; color: #777777; line-height: 1.6; border-top: 1px solid #eeeeee; padding-top: 16px; margin-top: 24px; }
     .footer { font-size: 12px; color: #999999; text-align: center; margin-top: 24px; }
   </style>
@@ -93,7 +239,7 @@ class MailerService {
       <div class="header-logo">707</div>
       <div><span class="badge">${isVip ? 'VIP GUEST' : 'PUBLIC ACCESS'}</span></div>
       <h1 class="title">YOUR EVENT E-PASS</h1>
-      <p class="subtitle">Present this QR code or 3-digit Access ID at the security entrance checkpoint.</p>
+      <p class="subtitle">Present this QR code or 3-digit Access ID at the security entrance checkpoint. Your official PDF pass is also attached to this email.</p>
 
       <div class="qr-container">
         <img src="${qrDataUrl}" alt="Event Pass QR Code" class="qr-img" />
@@ -119,6 +265,14 @@ class MailerService {
         </tr>
       </table>
 
+      ${bannerDataUrl ? `
+      <div class="banner-container">
+        <a href="${promoLink}" target="_blank" rel="noopener noreferrer">
+          <img src="${bannerDataUrl}" alt="Nikmati promo spesial dari Jenius!" class="banner-img" />
+        </a>
+      </div>
+      ` : ''}
+
       <div class="terms">
         <strong>TERMS & CONDITIONS:</strong><br>
         1. Valid for one (1) person only — non-transferable.<br>
@@ -138,7 +292,7 @@ class MailerService {
   }
 
   /**
-   * Send Transactional Email via SMTP
+   * Send Transactional Email via SMTP with PDF Attachment
    */
   async sendTransactionalPass({ guestName, accessId, role, selectedDates, email, phone }) {
     if (!email) {
@@ -146,12 +300,40 @@ class MailerService {
       return { success: false, reason: 'Missing email' }
     }
 
-    // Generate high-resolution QR code as Data URL
+    const isVip = (role || '').toUpperCase().includes('VIP')
+    const pdfFilename = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`
+
+    // 1. Generate high-resolution QR code as Data URL
     const qrDataUrl = await QRCode.toDataURL(accessId, {
       width: 400,
       margin: 1,
       color: { dark: '#000000', light: '#ffffff' }
     })
+
+    // 2. Load promo banner for email HTML
+    let bannerDataUrl = ''
+    try {
+      const bannerFile = path.resolve(process.cwd(), 'src/assets/ad-banner.png')
+      if (fs.existsSync(bannerFile)) {
+        const bannerBuf = fs.readFileSync(bannerFile)
+        bannerDataUrl = 'data:image/png;base64,' + bannerBuf.toString('base64')
+      }
+    } catch (e) {
+      console.warn('[Mailer]: Could not load banner for email embed:', e.message)
+    }
+
+    // 3. Generate PDF Pass Buffer
+    let pdfBuffer = null
+    try {
+      pdfBuffer = await this.generatePassPdfBuffer({
+        guestName,
+        accessId,
+        role,
+        selectedDates
+      })
+    } catch (pdfErr) {
+      console.error('[Mailer]: Failed to generate PDF pass attachment:', pdfErr)
+    }
 
     const htmlContent = await this.buildPassEmailHtml({
       guestName,
@@ -160,7 +342,8 @@ class MailerService {
       selectedDates,
       email,
       phone,
-      qrDataUrl
+      qrDataUrl,
+      bannerDataUrl
     })
 
     const subject = `Your 707 Event Pass [Access ID: ${accessId}]`
@@ -168,15 +351,24 @@ class MailerService {
     // If SMTP is configured
     if (this.transporter) {
       try {
-        const result = await this.transporter.sendMail({
+        const mailOptions = {
           from: `"${this.fromName}" <${this.fromEmail}>`,
           to: `"${guestName}" <${email}>`,
           replyTo: this.fromEmail,
           subject,
-          html: htmlContent
-        })
+          html: htmlContent,
+          attachments: pdfBuffer ? [
+            {
+              filename: pdfFilename,
+              content: pdfBuffer,
+              contentType: 'application/pdf'
+            }
+          ] : []
+        }
 
-        console.log(`[SMTP Mailer 🚀]: Successfully sent E-Pass to ${email} (Access ID: ${accessId})`)
+        const result = await this.transporter.sendMail(mailOptions)
+
+        console.log(`[SMTP Mailer 🚀]: Successfully sent E-Pass (PDF attached) to ${email} (Access ID: ${accessId})`)
         return { success: true, provider: 'smtp', result: { messageId: result.messageId } }
       } catch (err) {
         console.error('[SMTP Mailer Error]:', err.message)
@@ -185,12 +377,13 @@ class MailerService {
     }
 
     // Development / Simulated Delivery Fallback
-    console.log(`[Mailer (Simulated) ✉️]: E-Pass queued & sent for ${guestName} <${email}> (Access ID: ${accessId}, Role: ${role})`)
+    console.log(`[Mailer (Simulated) ✉️]: E-Pass (PDF generated) queued & sent for ${guestName} <${email}> (Access ID: ${accessId}, Role: ${role})`)
     return {
       success: true,
       provider: 'simulated',
       recipient: email,
       accessId,
+      hasPdf: Boolean(pdfBuffer),
       note: 'SMTP_HOST not configured; simulated delivery.'
     }
   }

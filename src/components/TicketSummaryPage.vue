@@ -71,6 +71,19 @@
           </div>
         </div>
 
+        <!-- Download PDF Action Option -->
+        <div class="download-pdf-wrapper">
+          <button
+            type="button"
+            class="download-pdf-btn"
+            :disabled="isDownloading"
+            @click="handleDownloadEPassPdf"
+          >
+            <span v-if="isDownloading">GENERATING PDF...</span>
+            <span v-else>DOWNLOAD E-PASS (PDF)</span>
+          </button>
+        </div>
+
         <!-- Row 5: Notice Info with Contact Support Link -->
         <div class="ticket-notice-box">
           <div class="info-icon-holder">
@@ -104,6 +117,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import QRCode from 'qrcode'
+import { jsPDF } from 'jspdf'
 import CtaButton from './CtaButton.vue'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
@@ -115,38 +129,45 @@ const props = defineProps({
       salutation: 'Mr.',
       firstName: 'ALVIN',
       lastName: 'DECOROUS',
-      email: '18ohalvin@gmail.com',
+      email: 'alvin@sosco.id',
       role: 'VIP GUEST'
     })
   },
-  selectedDateIds: {
+  selectedDates: {
     type: Array,
-    default: () => ['day-1', 'day-2']
+    default: () => ['day-1']
   }
 })
 
-const emit = defineEmits(['home'])
+const emit = defineEmits(['back', 'home'])
+
 const isDownloading = ref(false)
 
-const allDateOptions = [
-  { id: 'day-1', dayNum: 1, date: '2 September 2026', day: 'Day 1' },
-  { id: 'day-2', dayNum: 2, date: '3 September 2026', day: 'Day 2' },
-  { id: 'day-3', dayNum: 3, date: '4 September 2026', day: 'Day 3' },
-  { id: 'day-4', dayNum: 4, date: '5 September 2026', day: 'Day 4' },
-  { id: 'day-5', dayNum: 5, date: '6 September 2026', day: 'Day 5' }
-]
-
-// Resolve date objects from IDs
+// Resolve selected event date objects for display
 const resolvedSelectedDates = computed(() => {
-  if (!props.selectedDateIds || props.selectedDateIds.length === 0) {
-    return [allDateOptions[0]]
+  const datesMap = {
+    'day-1': { id: 'day-1', date: 'WEDNESDAY, 2 SEP', day: 'DAY 1 (VIP)' },
+    'day-2': { id: 'day-2', date: 'THURSDAY, 3 SEP', day: 'DAY 2' },
+    'day-3': { id: 'day-3', date: 'FRIDAY, 4 SEP', day: 'DAY 3' },
+    'day-4': { id: 'day-4', date: 'SATURDAY, 5 SEP', day: 'DAY 4' },
+    'day-5': { id: 'day-5', date: 'SUNDAY, 6 SEP', day: 'DAY 5' }
   }
-  return allDateOptions.filter(d => props.selectedDateIds.includes(d.id))
+
+  const rawDates = Array.isArray(props.selectedDates) && props.selectedDates.length > 0
+    ? props.selectedDates
+    : (props.userDetails.selectedDates || ['day-1'])
+
+  return rawDates.map(key => {
+    if (typeof key === 'object' && key.day) {
+      return key
+    }
+    return datesMap[key] || { id: key, date: 'EVENT DATE', day: key.toUpperCase() }
+  })
 })
 
-// Guest Name: e.g. "Mr. ALVIN DECOROUS"
+// Guest Name Formatted (e.g. "MR. ALVIN DECOROUS")
 const formattedGuestName = computed(() => {
-  let sal = (props.userDetails.salutation || 'Mr.').trim()
+  let sal = (props.userDetails.salutation || 'Mr.').toUpperCase()
   if (!sal.endsWith('.')) sal = `${sal}.`
   const first = (props.userDetails.firstName || 'ALVIN').toUpperCase()
   const last = (props.userDetails.lastName || 'DECOROUS').toUpperCase()
@@ -167,8 +188,8 @@ const computedAccessId = computed(() => {
   return '707'
 })
 
-// Generate & Download high-resolution E-Pass image matching Figma nodes 197:958 (VIP) and 473:505 (Public)
-const handleDownloadQr = async () => {
+// Generate & Download high-resolution E-Pass PDF with Clickable Sponsor Promo Link
+const handleDownloadEPassPdf = async () => {
   if (isDownloading.value) return
   isDownloading.value = true
 
@@ -201,7 +222,6 @@ const handleDownloadQr = async () => {
     ctx.fillRect(0, 0, width, height)
 
     // 2. Header: 707 Logo (Exactly 48px Header Height, 17px Logo Height matching AppHeader.vue)
-    // Header Y: 0 to 48px, Logo vertically centered at Y = (48 - 17) / 2 = 15.5px, X: 24px, W: 53px, H: 17px
     const logoImg = await loadImage(logo707Black)
     if (isVip) {
       // Draw pure white 707 logo on dark background for VIP E-Pass
@@ -220,7 +240,6 @@ const handleDownloadQr = async () => {
     }
 
     // 3. Title Row (Y: 76px)
-    // Left Title: "VIP GUEST" or "PUBLIC GUEST"
     ctx.font = "300 18px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillStyle = isVip ? '#ffffff' : '#000000'
     ctx.textAlign = 'left'
@@ -231,7 +250,7 @@ const handleDownloadQr = async () => {
     ctx.textAlign = 'right'
     ctx.fillText('YOUR ACCESS', 378, 76)
 
-    // 4. QR Code Box (X: 24, Y: 108, Size: 195, Radius: 5) - +12px spacing from title
+    // 4. QR Code Box (X: 24, Y: 108, Size: 195, Radius: 5)
     const qrBoxX = 24
     const qrBoxY = 108
     const qrBoxSize = 195
@@ -248,34 +267,25 @@ const handleDownloadQr = async () => {
       c.closePath()
     }
 
-    // Inner QR container background (#F2F2F2)
     ctx.fillStyle = '#f2f2f2'
     drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
     ctx.fill()
 
-    // QR Border (White for VIP, Black for Public)
     ctx.strokeStyle = isVip ? '#ffffff' : '#000000'
     ctx.lineWidth = 0.5
     drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
     ctx.stroke()
 
-    // Generate high-resolution QR code
     const qrDataUrl = await QRCode.toDataURL(accessId, {
       width: 600,
       margin: 0,
-      color: {
-        dark: '#000000',
-        light: '#f2f2f2'
-      }
+      color: { dark: '#000000', light: '#f2f2f2' }
     })
     const qrImg = await loadImage(qrDataUrl)
-    // Center QR code within box (13px inset)
     ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
 
-    // 5. Identity & Summary Grid (Y: 344) - +16px extra spacing from QR
+    // 5. Identity & Summary Grid (Y: 344)
     ctx.textAlign = 'left'
-
-    // Row 1: GUEST NAME (Col 1, X: 24) & VENUE (Col 2, X: 216)
     ctx.fillStyle = isVip ? '#ffffff' : '#000000'
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillText('GUEST NAME', 24, 344)
@@ -320,7 +330,7 @@ const handleDownloadQr = async () => {
     ctx.fillText('PLAZA SENAYAN', 216, 368)
     ctx.fillText('4th FLOOR', 216, 390)
 
-    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 438) - +16px extra spacing from Row 1
+    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 438)
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillText('VALID FOR', 24, 438)
     ctx.fillText('ACCESS ID', 216, 438)
@@ -339,30 +349,36 @@ const handleDownloadQr = async () => {
     ctx.fillText(validForStr, 24, 462)
     ctx.fillText(accessId, 216, 462)
 
-    // 6. Ad Banner Image (Y: 510, X: 24, W: 354, H: 177) - +16px extra spacing from Row 2
+    // 6. Ad Banner Image (Y: 510, X: 24, W: 354, H: 177)
     const banner = await loadImage(adBannerImg)
     ctx.drawImage(banner, 24, 510, 354, 177)
 
-    // 7. Terms & Conditions (Y: 720, X: 24) - +16px extra spacing from Ad Banner
+    // 7. Terms & Conditions (Y: 720, X: 24)
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillText('TERMS & CONDITIONS:', 24, 720)
-
     ctx.font = "300 11px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 744)
     ctx.fillText('Present this ticket at the entrance for scanning.', 24, 764)
     ctx.fillText('No re-entry once you have exited the venue.', 24, 784)
     ctx.fillText('Management is not liable for loss of personal belongings.', 24, 804)
 
-    // 8. Trigger PNG File Download
-    const downloadUrl = canvas.toDataURL('image/png')
-    const link = document.createElement('a')
-    link.download = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.png`
-    link.href = downloadUrl
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // 8. Generate PDF with Clickable Link
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'pt',
+      format: [width, height]
+    })
+    pdf.addImage(imgData, 'PNG', 0, 0, width, height, '', 'FAST')
+
+    // Clickable Hyperlink Annotation over Sponsor Promo Banner
+    const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
+    pdf.link(24, 510, 354, 177, { url: promoLink })
+
+    // Save as PDF file
+    pdf.save(`FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`)
   } catch (err) {
-    console.error('Error generating QR pass download:', err)
+    console.error('Error generating PDF pass download:', err)
   } finally {
     isDownloading.value = false
   }
@@ -579,5 +595,40 @@ const handleDownloadQr = async () => {
   text-decoration: underline;
   text-underline-position: from-font;
   cursor: pointer;
+}
+
+.download-pdf-wrapper {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.download-pdf-btn {
+  width: 100%;
+  height: 48px;
+  background-color: transparent;
+  border: 1px solid #000000;
+  border-radius: 0;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000000;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.download-pdf-btn:hover:not(:disabled) {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.download-pdf-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
