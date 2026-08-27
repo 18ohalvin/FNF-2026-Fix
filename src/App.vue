@@ -412,7 +412,8 @@ const handleDetailsSubmit = async (formData) => {
   // Persist guest details to SQLite backend with duplicate email verification
   try {
     const saveRes = await apiSaveGuest(mergedData)
-    if (saveRes && saveRes.error) {
+    // Only display toast and block if it's an explicit validation error from backend (e.g. duplicate email), ignore raw network fetch errors
+    if (saveRes && saveRes.error && saveRes.status === 400 && !saveRes.isNetworkError && saveRes.error !== 'Load failed' && saveRes.error !== 'Failed to fetch') {
       showToast(saveRes.error)
       return
     }

@@ -60,10 +60,12 @@ async function fetchWithApiFallback(urlPath, options = {}) {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
-      const err = new Error(errData?.error || `HTTP ${res.status}`)
-      err.data = errData
-      err.status = res.status
-      throw err
+      return {
+        success: false,
+        isError: true,
+        status: res.status,
+        error: errData?.error || `HTTP ${res.status}`
+      }
     }
     return await res.json()
   } catch (primaryErr) {
@@ -75,10 +77,22 @@ async function fetchWithApiFallback(urlPath, options = {}) {
         const contentType2 = res2.headers.get('content-type') || ''
         if (res2.ok && !contentType2.includes('text/html')) {
           return await res2.json()
+        } else if (!res2.ok) {
+          const errData2 = await res2.json().catch(() => ({}))
+          return {
+            success: false,
+            isError: true,
+            status: res2.status,
+            error: errData2?.error || `HTTP ${res2.status}`
+          }
         }
       } catch (e) {}
     }
-    throw primaryErr
+    return {
+      success: false,
+      isNetworkError: true,
+      error: primaryErr.message || 'Network request failed'
+    }
   }
 }
 
