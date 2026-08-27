@@ -199,7 +199,7 @@ class MailerService {
   /**
    * Generate clean brutalist HTML email template matching 707 design
    */
-  async buildPassEmailHtml({ guestName, accessId, role, selectedDates, email, phone, qrDataUrl, bannerDataUrl }) {
+  async buildPassEmailHtml({ guestName, accessId, role, selectedDates, bannerDataUrl }) {
     const isVip = (role || '').toUpperCase().includes('VIP')
     const badgeBg = isVip ? '#000000' : '#333333'
     const validDatesHtml = this.formatDates(selectedDates)
@@ -220,16 +220,15 @@ class MailerService {
     .badge { display: inline-block; background-color: ${badgeBg}; color: #ffffff; font-size: 11px; font-weight: 600; padding: 4px 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
     .title { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 8px 0; color: #000000; }
     .subtitle { font-size: 14px; color: #666666; margin: 0 0 24px 0; line-height: 1.5; }
-    .qr-container { text-align: center; background-color: #f9f9f9; padding: 20px; border: 1px solid #eeeeee; margin-bottom: 24px; }
-    .qr-img { width: 200px; height: 200px; display: inline-block; }
-    .access-id { font-size: 18px; font-weight: 700; letter-spacing: 0.1em; margin-top: 12px; color: #000000; }
-    .info-table { width: 100%; margin-bottom: 24px; border-top: 1px solid #eeeeee; }
+    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #000000; border-top: 1px solid #eeeeee; padding-top: 16px; margin-top: 8px; margin-bottom: 4px; }
+    .info-table { width: 100%; margin-bottom: 24px; }
     .info-row td { padding: 12px 0; border-bottom: 1px solid #eeeeee; vertical-align: top; }
     .info-label { font-size: 11px; color: #888888; text-transform: uppercase; letter-spacing: 0.05em; width: 35%; }
     .info-val { font-size: 14px; font-weight: 600; color: #000000; }
     .banner-container { margin: 24px 0; text-align: center; }
     .banner-img { max-width: 100%; width: 100%; height: auto; border: 0; display: block; border-radius: 4px; }
     .terms { font-size: 11px; color: #777777; line-height: 1.6; border-top: 1px solid #eeeeee; padding-top: 16px; margin-top: 24px; }
+    .signoff { font-size: 14px; color: #000000; line-height: 1.6; margin-top: 24px; }
     .footer { font-size: 12px; color: #999999; text-align: center; margin-top: 24px; }
   </style>
 </head>
@@ -238,19 +237,14 @@ class MailerService {
     <div class="card">
       <div class="header-logo">707</div>
       <div><span class="badge">${isVip ? 'VIP GUEST' : 'PUBLIC ACCESS'}</span></div>
-      <h1 class="title">YOUR EVENT E-PASS</h1>
-      <p class="subtitle">Present this QR code or 3-digit Access ID at the security entrance checkpoint. Your official PDF pass is also attached to this email.</p>
+      <h1 class="title">SUCCESS. YOUR PASS HAS BEEN ISSUED.</h1>
+      <p class="subtitle">
+        Dear ${guestName},<br><br>
+        Your registration is confirmed. Please find your official E-Pass attached to this email as a PDF document.
+      </p>
 
-      <div class="qr-container">
-        <img src="${qrDataUrl}" alt="Event Pass QR Code" class="qr-img" />
-        <div class="access-id">ACCESS ID: ${accessId}</div>
-      </div>
-
+      <div class="section-title">EVENT DETAILS</div>
       <table class="info-table">
-        <tr class="info-row">
-          <td class="info-label">GUEST NAME</td>
-          <td class="info-val">${guestName}</td>
-        </tr>
         <tr class="info-row">
           <td class="info-label">VENUE</td>
           <td class="info-val">PLAZA SENAYAN — 4th FLOOR</td>
@@ -260,8 +254,8 @@ class MailerService {
           <td class="info-val">${validDatesHtml}</td>
         </tr>
         <tr class="info-row">
-          <td class="info-label">PHONE</td>
-          <td class="info-val">${phone || '-'}</td>
+          <td class="info-label">ACCESS ID</td>
+          <td class="info-val">${accessId}</td>
         </tr>
       </table>
 
@@ -274,12 +268,16 @@ class MailerService {
       ` : ''}
 
       <div class="terms">
-        <strong>TERMS & CONDITIONS:</strong><br>
-        1. Valid for one (1) person only — non-transferable.<br>
-        2. Present this ticket at the entrance for scanning.<br>
-        3. No re-entry once you have exited the venue.<br>
-        4. Management is not liable for loss of personal belongings.
+        <strong>ENTRY INSTRUCTIONS:</strong><br>
+        Please download the attached PDF to your device before arriving. You must present the QR code on the attachment at the entrance for scanning. Ensure your screen brightness is turned up for faster entry.
+        <br><br>
+        Please note: The attached QR code serves as your universal access pass. If you have registered for multiple days, you will use this exact same QR code for every day of your visit. You will not receive separate tickets.
       </div>
+
+      <p class="signoff">
+        We look forward to seeing you.<br>
+        <strong>— 707 Team</strong>
+      </p>
     </div>
     <div class="footer">
       © 2026 707 Event Management. All rights reserved.<br>
@@ -303,14 +301,7 @@ class MailerService {
     const isVip = (role || '').toUpperCase().includes('VIP')
     const pdfFilename = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`
 
-    // 1. Generate high-resolution QR code as Data URL
-    const qrDataUrl = await QRCode.toDataURL(accessId, {
-      width: 400,
-      margin: 1,
-      color: { dark: '#000000', light: '#ffffff' }
-    })
-
-    // 2. Load promo banner for email HTML
+    // 1. Load promo banner for email HTML
     let bannerDataUrl = ''
     try {
       const bannerFile = path.resolve(process.cwd(), 'src/assets/ad-banner.png')
@@ -322,7 +313,7 @@ class MailerService {
       console.warn('[Mailer]: Could not load banner for email embed:', e.message)
     }
 
-    // 3. Generate PDF Pass Buffer
+    // 2. Generate PDF Pass Buffer
     let pdfBuffer = null
     try {
       pdfBuffer = await this.generatePassPdfBuffer({
@@ -340,13 +331,10 @@ class MailerService {
       accessId,
       role,
       selectedDates,
-      email,
-      phone,
-      qrDataUrl,
       bannerDataUrl
     })
 
-    const subject = `Your 707 Event Pass [Access ID: ${accessId}]`
+    const subject = 'CONFIRMED: Your FNF 2026 707 Access Pass'
 
     // If SMTP is configured
     if (this.transporter) {
