@@ -94,12 +94,11 @@
       </div>
     </main>
 
-    <!-- Sticky Bottom CTA Button: DOWNLOAD E-PASS -->
+    <!-- Sticky Bottom CTA Button: DONE -->
     <CtaButton
       :active="true"
-      :loading="isDownloading"
-      :label="hasDownloaded ? 'DOWNLOAD AGAIN' : 'DOWNLOAD E-PASS'"
-      @click="handleDownloadEPassPdf"
+      label="DONE"
+      @click="emit('home')"
     />
   </div>
 </template>

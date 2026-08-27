@@ -12,8 +12,8 @@
       <p class="instruction-text">
         {{
           isRegistered
-            ? `Please confirm your information below to receive and download your ${isVipGuest ? 'VIP ' : ''}e-pass.`
-            : `Enter your details below to generate and download your ${isVipGuest ? 'VIP ' : ''}e-pass.`
+            ? `Your ${isVipGuest ? 'VIP ' : ''}e-pass will be delivered to this email address. Please confirm your information below.`
+            : `Enter your details below. Your ${isVipGuest ? 'VIP ' : ''}e-pass will be sent to this email.`
         }}
       </p>
 
