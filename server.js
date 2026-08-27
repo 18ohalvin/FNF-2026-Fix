@@ -235,7 +235,7 @@ app.post('/api/reservations', async (req, res) => {
       selectedDates
     })
 
-    // Trigger Mailchimp E-Pass Delivery asynchronously in background
+    // Trigger SMTP E-Pass Delivery asynchronously in background
     try {
       const guest = await db.getGuestByPhone(phone)
       mailer.dispatchEventPass({

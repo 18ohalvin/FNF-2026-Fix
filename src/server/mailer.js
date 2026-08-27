@@ -1,19 +1,33 @@
 import dotenv from 'dotenv'
 import QRCode from 'qrcode'
-import crypto from 'crypto'
+import nodemailer from 'nodemailer'
 
 dotenv.config()
 
 /**
- * Mailchimp & Transactional Email Dispatcher for 707 Event E-Passes
+ * SMTP Transactional Email Dispatcher for 707 Event E-Passes
  */
 class MailerService {
   constructor() {
-    this.apiKey = process.env.MAILCHIMP_API_KEY || process.env.MANDRILL_API_KEY || ''
-    this.fromEmail = process.env.MAILCHIMP_FROM_EMAIL || process.env.FROM_EMAIL || 'events@707.co.id'
-    this.fromName = process.env.MAILCHIMP_FROM_NAME || '707 Events'
-    this.listId = process.env.MAILCHIMP_LIST_ID || process.env.MAILCHIMP_AUDIENCE_ID || ''
-    this.serverPrefix = process.env.MAILCHIMP_SERVER_PREFIX || (this.apiKey.includes('-') ? this.apiKey.split('-')[1] : 'us1')
+    this.fromEmail = process.env.SMTP_FROM_EMAIL || process.env.FROM_EMAIL || 'events@707.co.id'
+    this.fromName = process.env.SMTP_FROM_NAME || '707 Events'
+
+    this.host = process.env.SMTP_HOST || ''
+    this.port = Number(process.env.SMTP_PORT || 587)
+    this.secure = process.env.SMTP_SECURE
+      ? process.env.SMTP_SECURE === 'true'
+      : this.port === 465
+    this.user = process.env.SMTP_USER || ''
+    this.pass = process.env.SMTP_PASS || ''
+
+    this.transporter = this.host
+      ? nodemailer.createTransport({
+          host: this.host,
+          port: this.port,
+          secure: this.secure,
+          auth: this.user ? { user: this.user, pass: this.pass } : undefined
+        })
+      : null
   }
 
   /**
@@ -124,54 +138,7 @@ class MailerService {
   }
 
   /**
-   * Sync subscriber to Mailchimp Marketing Audience
-   */
-  async syncToMailchimpAudience({ email, firstName, lastName, phone, role, accessId }) {
-    if (!this.apiKey || !this.listId) {
-      return { skipped: true, reason: 'MAILCHIMP_API_KEY or MAILCHIMP_LIST_ID not set' }
-    }
-
-    try {
-      const subscriberHash = crypto.createHash('md5').update(email.toLowerCase()).digest('hex')
-      const url = `https://${this.serverPrefix}.api.mailchimp.com/3.0/lists/${this.listId}/members/${subscriberHash}`
-
-      const payload = {
-        email_address: email,
-        status_if_new: 'subscribed',
-        merge_fields: {
-          FNAME: firstName || 'Guest',
-          LNAME: lastName || '',
-          PHONE: phone || '',
-          ACCESS_ID: accessId || ''
-        },
-        tags: [role || 'PUBLIC ACCESS']
-      }
-
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `apikey ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      })
-
-      const data = await response.json()
-      if (!response.ok) {
-        console.warn('[Mailchimp Audience Sync Warning]:', data.title || data.detail || response.statusText)
-        return { success: false, error: data }
-      }
-
-      console.log(`[Mailchimp Audience]: Synced ${email} (${role})`)
-      return { success: true, data }
-    } catch (err) {
-      console.error('[Mailchimp Audience Sync Error]:', err.message)
-      return { success: false, error: err.message }
-    }
-  }
-
-  /**
-   * Send Transactional Email via Mailchimp Mandrill API
+   * Send Transactional Email via SMTP
    */
   async sendTransactionalPass({ guestName, accessId, role, selectedDates, email, phone }) {
     if (!email) {
@@ -198,48 +165,22 @@ class MailerService {
 
     const subject = `Your 707 Event Pass [Access ID: ${accessId}]`
 
-    // If Mailchimp / Mandrill API Key is configured
-    if (this.apiKey) {
+    // If SMTP is configured
+    if (this.transporter) {
       try {
-        const mandrillEndpoint = 'https://mandrillapp.com/api/1.0/messages/send.json'
-        const payload = {
-          key: this.apiKey,
-          message: {
-            html: htmlContent,
-            subject,
-            from_email: this.fromEmail,
-            from_name: this.fromName,
-            to: [
-              {
-                email,
-                name: guestName,
-                type: 'to'
-              }
-            ],
-            headers: {
-              'Reply-To': this.fromEmail
-            },
-            track_opens: true,
-            track_clicks: true,
-            auto_text: true
-          }
-        }
-
-        const res = await fetch(mandrillEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        const result = await this.transporter.sendMail({
+          from: `"${this.fromName}" <${this.fromEmail}>`,
+          to: `"${guestName}" <${email}>`,
+          replyTo: this.fromEmail,
+          subject,
+          html: htmlContent
         })
 
-        const result = await res.json()
-        if (!res.ok) {
-          console.warn('[Mailchimp Transactional Warning]:', result)
-        } else {
-          console.log(`[Mailchimp Mailer 🚀]: Successfully sent E-Pass to ${email} (Access ID: ${accessId})`)
-          return { success: true, provider: 'mailchimp-mandrill', result }
-        }
+        console.log(`[SMTP Mailer 🚀]: Successfully sent E-Pass to ${email} (Access ID: ${accessId})`)
+        return { success: true, provider: 'smtp', result: { messageId: result.messageId } }
       } catch (err) {
-        console.error('[Mailchimp Mailer Error]:', err.message)
+        console.error('[SMTP Mailer Error]:', err.message)
+        return { success: false, provider: 'smtp', error: err.message }
       }
     }
 
@@ -250,7 +191,7 @@ class MailerService {
       provider: 'simulated',
       recipient: email,
       accessId,
-      note: 'Mailchimp API key not configured or simulated delivery enabled.'
+      note: 'SMTP_HOST not configured; simulated delivery.'
     }
   }
 
@@ -266,7 +207,7 @@ class MailerService {
       const selectedDates = reservation?.selected_dates || reservation?.selectedDates
       const phone = guest?.phone
 
-      // 1. Send E-Pass Email
+      // Send E-Pass Email
       const sendResult = await this.sendTransactionalPass({
         guestName,
         accessId,
@@ -274,16 +215,6 @@ class MailerService {
         selectedDates,
         email,
         phone
-      })
-
-      // 2. Sync to Audience (if configured)
-      await this.syncToMailchimpAudience({
-        email,
-        firstName: guest?.first_name,
-        lastName: guest?.last_name,
-        phone,
-        role,
-        accessId
       })
 
       return sendResult
