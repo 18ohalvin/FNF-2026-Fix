@@ -216,6 +216,63 @@ app.post('/api/guests', async (req, res) => {
   }
 })
 
+// 3b. Update Guest Email and Resend E-Pass (Self-Service)
+app.post('/api/guests/update-email', async (req, res) => {
+  try {
+    const { phone, email } = req.body || {}
+    if (!phone || !email) {
+      return res.status(400).json({ error: 'Phone number and new email address are required' })
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(String(email).trim())) {
+      return res.status(400).json({ error: 'Please provide a valid email address' })
+    }
+
+    const guest = await db.getGuestByPhone(phone)
+    if (!guest) {
+      return res.status(404).json({ error: 'Guest record not found' })
+    }
+
+    // Update guest email
+    await db.upsertGuest({
+      phone: guest.phone,
+      salutation: guest.salutation,
+      firstName: guest.first_name,
+      lastName: guest.last_name,
+      email: String(email).trim(),
+      instagram: guest.instagram,
+      role: guest.role
+    })
+
+    const updatedGuest = await db.getGuestByPhone(phone)
+    const reservation = await db.getReservationByPhone(phone)
+
+    // Re-dispatch E-Pass email to the updated email address
+    try {
+      mailer.dispatchEventPass({
+        guest: updatedGuest,
+        reservation: reservation || {
+          access_id: updatedGuest?.access_id || '707',
+          selected_dates: ['day-1']
+        }
+      }).catch(err => console.error('[Mailer Async Warning on Update Email]:', err.message || err))
+    } catch (mailErr) {
+      console.warn('[Mailer Trigger Warning]:', mailErr.message || mailErr)
+    }
+
+    res.json({
+      success: true,
+      message: 'Email updated and E-Pass resent successfully',
+      email: updatedGuest.email,
+      guest: updatedGuest
+    })
+  } catch (err) {
+    console.error('[API Update Email Error]', err)
+    res.status(500).json({ error: 'Internal server error updating email' })
+  }
+})
+
 // 4. Create Reservation Endpoint (Simplified Short Access IDs)
 app.post('/api/reservations', async (req, res) => {
   try {

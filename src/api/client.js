@@ -353,3 +353,19 @@ export async function apiDeleteGuest(phone) {
     }
   }
 }
+
+/**
+ * Public guest self-service: Update guest email and re-dispatch E-Pass
+ */
+export async function apiUpdateGuestEmail(phone, email) {
+  try {
+    return await fetchWithApiFallback('/api/guests/update-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, email })
+    })
+  } catch (err) {
+    console.error('[API Client] Update email failed:', err)
+    return { success: false, error: err.data?.error || err.message || 'Failed to update email.' }
+  }
+}

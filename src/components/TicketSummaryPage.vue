@@ -52,9 +52,18 @@
 
         <!-- Row 3: Email -->
         <div class="info-block email-block">
-          <span class="info-label">EMAIL</span>
+          <div class="email-label-row">
+            <span class="info-label">EMAIL</span>
+            <button
+              type="button"
+              class="edit-email-text-btn"
+              @click="isUpdateEmailOpen = true"
+            >
+              CHANGE
+            </button>
+          </div>
           <span class="info-value email-value">
-            {{ userDetails.email || 'alvin@sosco.id' }}
+            {{ activeEmail }}
           </span>
         </div>
 
@@ -73,7 +82,7 @@
           </div>
         </div>
 
-        <!-- Row 5: Notice Info with Contact Support Link -->
+        <!-- Row 5: Notice Info with Update Guest Email Link -->
         <div class="ticket-notice-box">
           <div class="info-icon-holder">
             <img src="../assets/icon-info.svg" alt="Information" class="info-icon" />
@@ -82,12 +91,11 @@
             <p class="notice-heading">DIDN'T RECEIVE THE EMAIL?</p>
             <p class="notice-body">
               Check your spam folder or
-              <a
-                href="https://wa.me/6281277208270"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="contact-support-link"
-              >contact support.</a>
+              <button
+                type="button"
+                class="update-email-link-btn"
+                @click="isUpdateEmailOpen = true"
+              >update your email.</button>
             </p>
           </div>
         </div>
@@ -100,14 +108,34 @@
       label="DONE"
       @click="emit('home')"
     />
+
+    <!-- Update Guest Email Modal -->
+    <UpdateEmailModal
+      :is-open="isUpdateEmailOpen"
+      :phone="userDetails.phone"
+      :current-email="activeEmail"
+      @close="isUpdateEmailOpen = false"
+      @updated="handleEmailUpdated"
+    />
+
+    <!-- Toast Notification for Email Resent Feedback -->
+    <Transition name="toast">
+      <div v-if="toastMessage" class="toast-notification">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52c41a" stroke-width="2" style="flex-shrink: 0;">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>{{ toastMessage }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import CtaButton from './CtaButton.vue'
+import UpdateEmailModal from './UpdateEmailModal.vue'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
 
@@ -119,6 +147,7 @@ const props = defineProps({
       firstName: 'ALVIN',
       lastName: 'DECOROUS',
       email: 'alvin@sosco.id',
+      phone: '081707909707',
       role: 'VIP GUEST'
     })
   },
@@ -136,6 +165,25 @@ const emit = defineEmits(['back', 'home'])
 
 const isDownloading = ref(false)
 const hasDownloaded = ref(false)
+const isUpdateEmailOpen = ref(false)
+const toastMessage = ref('')
+
+const activeEmail = ref(props.userDetails?.email || 'guest@707.co.id')
+
+watch(() => props.userDetails?.email, (newVal) => {
+  if (newVal) activeEmail.value = newVal
+})
+
+const handleEmailUpdated = (newEmail) => {
+  activeEmail.value = newEmail
+  if (props.userDetails) {
+    props.userDetails.email = newEmail
+  }
+  toastMessage.value = `E-Pass resent to ${newEmail}!`
+  setTimeout(() => {
+    toastMessage.value = ''
+  }, 4000)
+}
 
 // Resolve selected event date objects for display
 const resolvedSelectedDates = computed(() => {
@@ -458,6 +506,32 @@ const handleDownloadEPassPdf = async () => {
   letter-spacing: 0.02em;
 }
 
+.email-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.edit-email-text-btn {
+  background: transparent;
+  border: none;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #000000;
+  text-decoration: underline;
+  text-underline-position: from-font;
+  cursor: pointer;
+  padding: 0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.edit-email-text-btn:hover {
+  color: #444444;
+}
+
 .info-value {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -606,12 +680,53 @@ const handleDownloadEPassPdf = async () => {
   margin: 0;
 }
 
-.contact-support-link {
+.update-email-link-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: #000000;
   text-decoration: underline;
   text-underline-position: from-font;
   cursor: pointer;
+  display: inline;
+}
+
+.update-email-link-btn:hover {
+  color: #333333;
+}
+
+.toast-notification {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #000000;
+  color: #ffffff;
+  padding: 12px 20px;
+  border: 1px solid #333333;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 10000;
+  white-space: nowrap;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 16px);
 }
 </style>

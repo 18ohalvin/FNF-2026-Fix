@@ -174,7 +174,7 @@
               </span>
             </div>
 
-            <!-- Override Action Button + Delete Trash Icon -->
+            <!-- Override Action Button + View E-Pass + Edit + Delete Trash Icon -->
             <div class="col-action">
               <button
                 type="button"
@@ -184,6 +184,20 @@
                 @click="handleOverride(guest)"
               >
                 {{ guest.is_checked_in ? 'FORCE OUT' : 'CHECK-IN' }}
+              </button>
+
+              <button
+                type="button"
+                class="view-pass-btn"
+                title="View & Download E-Pass"
+                :disabled="isActionProcessing"
+                @click="handleViewPass(guest)"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2 9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v2a2 2 0 0 0 0 4v2a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-2a2 2 0 0 0 0-4V9z"></path>
+                  <line x1="13" y1="6" x2="13" y2="18" stroke-dasharray="2 2"></line>
+                </svg>
+                <span>PASS</span>
               </button>
 
               <button
@@ -235,6 +249,13 @@
       @saved="loadGuests(false)"
     />
 
+    <!-- View & Download Customer E-Pass Modal -->
+    <ViewEPassModal
+      :is-open="isViewEPassOpen"
+      :guest="selectedPassGuest"
+      @close="isViewEPassOpen = false"
+    />
+
     <!-- Toast Notification for Alerts & Override Errors -->
     <Transition name="toast">
       <div v-if="toastMessage" class="toast-notification">
@@ -254,6 +275,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { apiFetchCustomerDatabase, apiOverrideGuestStatus, apiDeleteGuest } from '../api/client'
 import CalendarModal from './CalendarModal.vue'
 import EditGuestModal from './EditGuestModal.vue'
+import ViewEPassModal from './ViewEPassModal.vue'
 
 const emit = defineEmits(['nav-analytics', 'nav-scanner', 'logout'])
 
@@ -271,6 +293,14 @@ const isLoading = ref(true)
 const isActionProcessing = ref(false)
 const isEditModalOpen = ref(false)
 const selectedEditGuest = ref(null)
+const isViewEPassOpen = ref(false)
+const selectedPassGuest = ref(null)
+
+const handleViewPass = (guest) => {
+  selectedPassGuest.value = guest
+  isViewEPassOpen.value = true
+}
+
 let searchDebounce = null
 let pollInterval = null
 
@@ -793,10 +823,10 @@ onUnmounted(() => {
 }
 
 .col-action {
-  width: 173px;
+  width: 255px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   padding: 12px 16px;
   box-sizing: border-box;
   flex-shrink: 0;
@@ -805,16 +835,46 @@ onUnmounted(() => {
 /* Action Buttons */
 .override-action-btn {
   height: 32px;
-  padding: 0 16px;
+  padding: 0 14px;
   border: none;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-pass-btn {
+  background-color: transparent;
+  border: 1px solid #000000;
+  border-radius: 0;
+  height: 32px;
+  padding: 0 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #000000;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.view-pass-btn:hover:not(:disabled) {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.view-pass-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .btn-force-out {
