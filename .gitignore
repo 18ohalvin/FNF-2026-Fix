@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local credentials (never commit)
+/local/
+
 # Local SQLite Database
 data/*.sqlite
 data/*.sqlite-shm
