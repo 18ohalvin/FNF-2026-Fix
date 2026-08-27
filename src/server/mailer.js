@@ -8,66 +8,6 @@ import path from 'path'
 dotenv.config()
 
 /**
- * Format "VALID FOR" lines matching business rules
- */
-export function formatValidForLines(selectedDates, role = 'VIP GUEST') {
-  const isVipRole = (role || '').toUpperCase().includes('VIP')
-  let arr = []
-  if (Array.isArray(selectedDates)) {
-    arr = selectedDates
-  } else if (typeof selectedDates === 'string') {
-    try {
-      arr = JSON.parse(selectedDates)
-    } catch (e) {
-      arr = selectedDates.split(',').map(s => s.trim())
-    }
-  }
-
-  const tokens = arr.map(item => {
-    if (typeof item === 'object' && item !== null) {
-      if (item.id) return String(item.id).toLowerCase()
-      if (item.day) return String(item.day).toLowerCase()
-    }
-    return String(item).toLowerCase()
-  })
-
-  const hasVipDay = tokens.some(t => t === 'day-1' || t === '1' || t.includes('vip') || t.includes('day 1'))
-  const publicDayNums = []
-  const publicMap = [
-    { num: 2, keys: ['day-2', '2', 'day 2'] },
-    { num: 3, keys: ['day-3', '3', 'day 3'] },
-    { num: 4, keys: ['day-4', '4', 'day 4'] },
-    { num: 5, keys: ['day-5', '5', 'day 5'] }
-  ]
-
-  for (const item of publicMap) {
-    if (tokens.some(t => item.keys.some(k => t === k || t.includes(k)))) {
-      publicDayNums.push(item.num)
-    }
-  }
-
-  const lines = []
-  if (hasVipDay) {
-    lines.push('VIP: DAY 1')
-  }
-  if (publicDayNums.length === 4) {
-    lines.push('PUBLIC: ALL DAY')
-  } else if (publicDayNums.length > 0) {
-    lines.push(`PUBLIC: DAY ${publicDayNums.join(', ')}`)
-  }
-
-  if (lines.length === 0) {
-    if (isVipRole) {
-      lines.push('VIP: DAY 1')
-    } else {
-      lines.push('PUBLIC: ALL DAY')
-    }
-  }
-
-  return lines
-}
-
-/**
  * SMTP Transactional Email Dispatcher for 707 Event E-Passes with PDF Attachment
  */
 class MailerService {
@@ -96,8 +36,7 @@ class MailerService {
   /**
    * Helper to format human-readable event day names
    */
-  formatDates(dates) {
-    if (!dates) return 'Day 1 (2 September 2026)'
+  getValidForLines(dates, role = 'VIP GUEST') {
     let arr = Array.isArray(dates) ? dates : []
     if (typeof dates === 'string') {
       try {
@@ -106,14 +45,31 @@ class MailerService {
         arr = dates.split(',').map(s => s.trim())
       }
     }
-    const map = {
-      'day-1': 'Day 1 — 2 Sep 2026 (VIP)',
-      'day-2': 'Day 2 — 3 Sep 2026',
-      'day-3': 'Day 3 — 4 Sep 2026',
-      'day-4': 'Day 4 — 5 Sep 2026',
-      'day-5': 'Day 5 — 6 Sep 2026'
+    const normalized = arr.map(k => String(k).toLowerCase().trim())
+    const hasDay1 = normalized.some(k => k === 'day-1' || k === '1' || k.includes('day 1'))
+    const publicDays = ['day-2', 'day-3', 'day-4', 'day-5'].filter(d => 
+      normalized.some(k => k === d || k === d.replace('day-', '') || k === d.replace('-', ' '))
+    )
+
+    const lines = []
+    if (hasDay1) {
+      lines.push('VIP: DAY 1')
     }
-    return arr.map(d => map[d] || d).join('<br>') || 'Day 1'
+    if (publicDays.length === 4) {
+      lines.push('PUBLIC: ALL DAY')
+    } else if (publicDays.length > 0) {
+      const nums = publicDays.map(d => d.replace('day-', '')).join(', ')
+      lines.push(`PUBLIC: DAY ${nums}`)
+    }
+
+    if (lines.length === 0) {
+      lines.push((role || '').toUpperCase().includes('VIP') ? 'VIP: DAY 1' : 'PUBLIC: DAY 2')
+    }
+    return lines
+  }
+
+  formatDates(dates, role = 'VIP GUEST') {
+    return this.getValidForLines(dates, role).join('<br>')
   }
 
   /**
@@ -217,16 +173,14 @@ class MailerService {
     doc.text('ACCESS ID', 216, 438)
 
     doc.setFont('Helvetica', 'bold')
-    const validForLines = formatValidForLines(selectedDates, role)
-    if (validForLines.length === 1) {
-      doc.setFontSize(15)
-      doc.text(validForLines[0], 24, 462)
+    doc.setFontSize(14)
+    const validLines = this.getValidForLines(selectedDates, role)
+    if (validLines.length === 1) {
+      doc.text(validLines[0], 24, 462)
     } else {
-      doc.setFontSize(12)
-      doc.text(validForLines[0], 24, 458)
-      doc.text(validForLines[1], 24, 475)
+      doc.text(validLines[0], 24, 458)
+      doc.text(validLines[1], 24, 478)
     }
-    doc.setFontSize(16)
     doc.text(accessId, 216, 462)
 
     // 6. Promotional Banner with Clickable Hyperlink

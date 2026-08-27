@@ -155,7 +155,7 @@ app.get('/api/health', (req, res) => {
   })
 })
 
-// 2. Check Phone Number Endpoint (Checks if already registered to prevent duplicates)
+// 2. Check Phone Number Endpoint (Single Registration Check)
 app.post('/api/check-phone', async (req, res) => {
   try {
     const { phone } = req.body
@@ -164,31 +164,23 @@ app.post('/api/check-phone', async (req, res) => {
     }
 
     const rawDigits = normalizePhoneNumber(phone)
-    const existingGuest = await db.getGuestByPhone(phone)
-    const existingRes = existingGuest ? await db.getReservationByPhone(existingGuest.phone) : null
+    const existingGuest = await db.getGuestByPhone(rawDigits) || await db.getGuestByPhone(phone)
+    const existingReservation = await db.getReservationByPhone(rawDigits) || await db.getReservationByPhone(phone)
 
-    if (existingGuest && existingRes) {
+    // If guest already completed registration or has active reservations, flag as already registered
+    if (existingGuest && (existingGuest.is_registered === 1 || existingReservation)) {
       return res.json({
         found: true,
-        isRegistered: true,
+        alreadyRegistered: true,
         guest: existingGuest,
-        reservation: existingRes
-      })
-    }
-
-    if (existingGuest) {
-      return res.json({
-        found: true,
-        isRegistered: Boolean(existingGuest.is_registered),
-        guest: existingGuest,
-        reservation: existingRes || null
+        reservation: existingReservation
       })
     }
 
     return res.json({
       found: false,
-      isRegistered: false,
-      guest: {
+      alreadyRegistered: false,
+      guest: existingGuest || {
         phone: rawDigits,
         salutation: 'Mr.',
         firstName: '',
@@ -205,7 +197,37 @@ app.post('/api/check-phone', async (req, res) => {
   }
 })
 
-// 3. Upsert Guest Profile (Enforces 1 email per user check)
+// 2b. Check Email Uniqueness Endpoint
+app.post('/api/check-email', async (req, res) => {
+  try {
+    const { email, currentPhone } = req.body
+    if (!email) {
+      return res.json({ alreadyRegistered: false })
+    }
+
+    const existingGuest = await db.getGuestByEmail(email)
+    if (existingGuest) {
+      const existingRaw = normalizePhoneNumber(existingGuest.phone)
+      const currentRaw = normalizePhoneNumber(currentPhone || '')
+      if (existingRaw !== currentRaw) {
+        const existingRes = await db.getReservationByPhone(existingGuest.phone)
+        if (existingRes || existingGuest.is_registered === 1) {
+          return res.json({
+            alreadyRegistered: true,
+            message: 'This email is already registered to another guest.'
+          })
+        }
+      }
+    }
+
+    return res.json({ alreadyRegistered: false })
+  } catch (err) {
+    console.error('[API Check Email Error]', err)
+    res.status(500).json({ error: 'Internal server error checking email uniqueness' })
+  }
+})
+
+// 3. Upsert Guest Profile
 app.post('/api/guests', async (req, res) => {
   try {
     const phone = req.body.phone
@@ -220,16 +242,19 @@ app.post('/api/guests', async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required' })
     }
 
-    // Check duplicate email rule: 1 email per user/chance
-    if (email && email.includes('@') && !email.toLowerCase().endsWith('@707.co.id')) {
-      const emailGuest = await db.getGuestByEmail(email)
-      if (emailGuest && normalizePhoneNumber(emailGuest.phone) !== normalizePhoneNumber(phone)) {
-        const emailRes = await db.getReservationByPhone(emailGuest.phone)
-        if (emailRes || emailGuest.is_registered) {
-          return res.status(400).json({
-            success: false,
-            error: 'This email address has already been registered by another guest. Each guest is limited to 1 registration pass.'
-          })
+    // Verify email uniqueness against other registered guests
+    if (email && email !== 'guest@707.co.id') {
+      const existingEmailGuest = await db.getGuestByEmail(email)
+      if (existingEmailGuest) {
+        const existingRaw = normalizePhoneNumber(existingEmailGuest.phone)
+        const currentRaw = normalizePhoneNumber(phone)
+        if (existingRaw !== currentRaw) {
+          const existingRes = await db.getReservationByPhone(existingEmailGuest.phone)
+          if (existingRes || existingEmailGuest.is_registered === 1) {
+            return res.status(400).json({
+              error: 'This email address is already registered to another guest. Please use a different email.'
+            })
+          }
         }
       }
     }
@@ -308,24 +333,13 @@ app.post('/api/guests/update-email', async (req, res) => {
   }
 })
 
-// 4. Create Reservation Endpoint (Simplified Short Access IDs, 1 Reservation per User Rule)
+// 4. Create Reservation Endpoint (Simplified Short Access IDs)
 app.post('/api/reservations', async (req, res) => {
   try {
     let { phone, accessId, selectedDates } = req.body
 
     if (!phone || !selectedDates) {
       return res.status(400).json({ error: 'Missing required reservation parameters' })
-    }
-
-    // Check if reservation already exists for this phone (1 chance to register rule)
-    const existingRes = await db.getReservationByPhone(phone)
-    if (existingRes) {
-      return res.json({
-        ...existingRes,
-        success: true,
-        isExisting: true,
-        message: 'Existing reservation confirmed'
-      })
     }
 
     if (!accessId || accessId.length > 8 || accessId.includes('-')) {

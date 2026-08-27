@@ -60,12 +60,10 @@ async function fetchWithApiFallback(urlPath, options = {}) {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
-      return {
-        success: false,
-        isError: true,
-        status: res.status,
-        error: errData?.error || `HTTP ${res.status}`
-      }
+      const err = new Error(errData?.error || `HTTP ${res.status}`)
+      err.data = errData
+      err.status = res.status
+      throw err
     }
     return await res.json()
   } catch (primaryErr) {
@@ -77,22 +75,10 @@ async function fetchWithApiFallback(urlPath, options = {}) {
         const contentType2 = res2.headers.get('content-type') || ''
         if (res2.ok && !contentType2.includes('text/html')) {
           return await res2.json()
-        } else if (!res2.ok) {
-          const errData2 = await res2.json().catch(() => ({}))
-          return {
-            success: false,
-            isError: true,
-            status: res2.status,
-            error: errData2?.error || `HTTP ${res2.status}`
-          }
         }
       } catch (e) {}
     }
-    return {
-      success: false,
-      isNetworkError: true,
-      error: primaryErr.message || 'Network request failed'
-    }
+    throw primaryErr
   }
 }
 
@@ -133,6 +119,7 @@ export async function apiCheckPhone(phone) {
     const rawDigits = String(phone).replace(/\D/g, '')
     return {
       found: false,
+      alreadyRegistered: false,
       guest: {
         phone: rawDigits,
         salutation: 'Mr.',
@@ -144,6 +131,23 @@ export async function apiCheckPhone(phone) {
         isRegistered: false
       }
     }
+  }
+}
+
+/**
+ * Check if email is already registered to another guest
+ */
+export async function apiCheckEmail(email, currentPhone = '') {
+  try {
+    const data = await fetchWithApiFallback('/api/check-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, currentPhone })
+    })
+    return data
+  } catch (err) {
+    console.error('[API Client] Check email error:', err)
+    return { alreadyRegistered: false }
   }
 }
 

@@ -58,10 +58,10 @@
             <div class="pass-grid pass-grid-row2">
               <div class="pass-grid-col">
                 <span class="pass-label">VALID FOR</span>
-                <div class="valid-for-lines-box">
-                  <span v-for="(line, idx) in formattedValidForLines" :key="idx" class="pass-val valid-line">
+                <div class="pass-val">
+                  <div v-for="(line, idx) in validForLines" :key="idx">
                     {{ line }}
-                  </span>
+                  </div>
                 </div>
               </div>
               <div class="pass-grid-col">
@@ -130,7 +130,6 @@
 import { ref, computed, watch } from 'vue'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
-import { formatValidForLines } from '../utils/formatValidFor'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
 
@@ -168,10 +167,42 @@ const formattedGuestName = computed(() => {
   return `${formattedSal} ${first} ${last}`.trim() || 'GUEST'
 })
 
-const formattedValidForLines = computed(() => {
-  if (!props.guest) return ['Day 1']
+const validForLines = computed(() => {
+  if (!props.guest) return ['VIP: DAY 1']
   const rawDates = props.guest.selected_dates || props.guest.selectedDates || []
-  return formatValidForLines(rawDates, props.guest.role)
+  let arr = []
+  if (Array.isArray(rawDates)) {
+    arr = rawDates
+  } else if (typeof rawDates === 'string') {
+    try {
+      arr = JSON.parse(rawDates)
+    } catch (e) {
+      arr = rawDates.split(',').map(s => s.trim())
+    }
+  }
+
+  const normalized = arr.map(k => String(k).toLowerCase().trim())
+  const hasDay1 = normalized.some(k => k === 'day-1' || k === '1' || k.includes('day 1'))
+  const publicDays = ['day-2', 'day-3', 'day-4', 'day-5'].filter(d => 
+    normalized.some(k => k === d || k === d.replace('day-', '') || k === d.replace('-', ' '))
+  )
+
+  const lines = []
+  if (hasDay1) {
+    lines.push('VIP: DAY 1')
+  }
+  if (publicDays.length === 4) {
+    lines.push('PUBLIC: ALL DAY')
+  } else if (publicDays.length > 0) {
+    const nums = publicDays.map(d => d.replace('day-', '')).join(', ')
+    lines.push(`PUBLIC: DAY ${nums}`)
+  }
+
+  if (lines.length === 0) {
+    lines.push(isVip.value ? 'VIP: DAY 1' : 'PUBLIC: DAY 2')
+  }
+
+  return lines
 })
 
 // Generate QR Code when guest changes or modal opens
@@ -308,16 +339,14 @@ const handleDownloadPdf = async () => {
     ctx.fillText('VALID FOR', 24, 438)
     ctx.fillText('ACCESS ID', 216, 438)
 
-    const validLines = formattedValidForLines.value
-    if (validLines.length === 1) {
-      ctx.font = "500 15px 'Helvetica Neue', Arial, sans-serif"
-      ctx.fillText(validLines[0], 24, 462)
+    ctx.font = "500 14px 'Helvetica Neue', Arial, sans-serif"
+    const lines = validForLines.value
+    if (lines.length === 1) {
+      ctx.fillText(lines[0], 24, 462)
     } else {
-      ctx.font = "500 12.5px 'Helvetica Neue', Arial, sans-serif"
-      ctx.fillText(validLines[0], 24, 458)
-      ctx.fillText(validLines[1], 24, 476)
+      ctx.fillText(lines[0], 24, 458)
+      ctx.fillText(lines[1], 24, 478)
     }
-    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillText(accessId, 216, 462)
 
     // 6. Ad Banner
@@ -560,16 +589,6 @@ const handleDownloadPdf = async () => {
   font-weight: 600;
   line-height: 18px;
   text-transform: uppercase;
-}
-
-.valid-for-lines-box {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.valid-line {
-  display: block;
 }
 
 .pass-banner-wrapper {

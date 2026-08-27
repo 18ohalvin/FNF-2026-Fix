@@ -104,6 +104,13 @@
       />
     </template>
 
+    <!-- Already Registered Bottom Sheet Modal (1 Number & 1 Email per Guest) -->
+    <AlreadyRegisteredModal
+      :is-open="isAlreadyRegisteredOpen"
+      :message="alreadyRegisteredMsg"
+      @close="isAlreadyRegisteredOpen = false"
+    />
+
     <!-- Toast Notification -->
     <Transition name="toast">
       <div v-if="toastMessage" class="toast-notification">
@@ -121,6 +128,7 @@ import WhatsappForm from './components/WhatsappForm.vue'
 import CtaButton from './components/CtaButton.vue'
 import WhyWeNeedThisModal from './components/WhyWeNeedThisModal.vue'
 import CountryCodeModal from './components/CountryCodeModal.vue'
+import AlreadyRegisteredModal from './components/AlreadyRegisteredModal.vue'
 import ReviewDetailsPage from './components/ReviewDetailsPage.vue'
 import SelectDatesPage from './components/SelectDatesPage.vue'
 import TicketSummaryPage from './components/TicketSummaryPage.vue'
@@ -128,20 +136,13 @@ import ScannerPage from './components/ScannerPage.vue'
 import AnalyticsPage from './components/AnalyticsPage.vue'
 import CustomerDatabasePage from './components/CustomerDatabasePage.vue'
 import AdminLoginPage from './components/AdminLoginPage.vue'
-import { apiCheckPhone, apiSaveGuest, apiCreateReservation, apiStaffLogout } from './api/client'
-
-// Registered Mock Database Record
-const REGISTERED_VIP_DATABASE = [
-  {
-    phoneVariants: ['81707909707', '081707909707', '6281707909707'],
-    salutation: 'Mr.',
-    firstName: 'ALVIN',
-    lastName: 'DECOROUS',
-    email: '18ohalvin@gmail.com',
-    instagram: '@ohalvin',
-    role: 'VIP GUEST'
-  }
-]
+import {
+  apiCheckPhone,
+  apiCheckEmail,
+  apiSaveGuest,
+  apiCreateReservation,
+  apiStaffLogout
+} from './api/client'
 
 // Navigation & Screen State
 const currentPage = ref('landing') // 'landing' | 'whatsapp-check' | 'review-details' | 'select-dates' | 'ticket-summary' | 'scanner' | 'analytics' | 'database' | 'login'
@@ -150,6 +151,8 @@ const countryCode = ref('+62')
 const phoneNumber = ref('')
 const isWhyModalOpen = ref(false)
 const isCountryModalOpen = ref(false)
+const isAlreadyRegisteredOpen = ref(false)
+const alreadyRegisteredMsg = ref('')
 const isCheckingDatabase = ref(false)
 const toastMessage = ref('')
 const activeUserData = ref(null)
@@ -172,7 +175,7 @@ const checkRegistrationTypeFromUrl = () => {
   }
 }
 
-// Navigation Helper with HTML5 History API for browser/device back button & URL routing support
+// Navigation Helper with HTML5 History API
 const navigateTo = (page, replace = false) => {
   // Protect admin routes with staff login
   if (['scanner', 'analytics', 'database'].includes(page) && !isStaffAuthenticated()) {
@@ -226,8 +229,9 @@ const openCountryModal = () => {
 }
 
 const handleGoHome = () => {
-  activeUserData.value = null
+  // If user is already on ticket-summary, reset state and go to landing
   phoneNumber.value = ''
+  activeUserData.value = null
   selectedEventDates.value = registrationType.value === 'public' ? ['day-2'] : ['day-1']
   navigateTo('landing', true)
 }
@@ -241,13 +245,18 @@ const handlePopState = (event) => {
     isCountryModalOpen.value = false
     return
   }
-  checkRegistrationTypeFromUrl()
-
-  // Prevent users from going back once arrival dates are selected and pass is issued
-  if (currentPage.value === 'ticket-summary') {
-    history.pushState({ page: 'ticket-summary' }, '', window.location.pathname)
+  if (isAlreadyRegisteredOpen.value) {
+    isAlreadyRegisteredOpen.value = false
     return
   }
+
+  // Prevent going back from ticket-summary to edit dates (prevents double database entries)
+  if (currentPage.value === 'ticket-summary') {
+    history.pushState({ page: 'ticket-summary' }, '', window.location.href)
+    return
+  }
+
+  checkRegistrationTypeFromUrl()
 
   if (event.state && event.state.page) {
     currentPage.value = event.state.page
@@ -339,7 +348,7 @@ const showToast = (msg) => {
   }, 2800)
 }
 
-// Database check logic with 1-chance registration & duplicate prevention
+// Database check logic with 1 chance to register enforcement
 const handleCheckNumber = async () => {
   if (!isPhoneValid.value || isCheckingDatabase.value) return
 
@@ -351,24 +360,16 @@ const handleCheckNumber = async () => {
     const result = await apiCheckPhone(rawDigits)
     isCheckingDatabase.value = false
 
-    // If guest is already registered, load their confirmed ticket pass directly to prevent duplicate records
-    if (result.found && (result.isRegistered || result.reservation)) {
-      const role = result.guest?.role || defaultRole
-      activeUserData.value = {
-        ...result.guest,
-        role,
-        access_id: result.reservation?.access_id || result.guest?.access_id || '707',
-        isRegistered: true
-      }
-      selectedEventDates.value = result.reservation?.selected_dates || result.guest?.selected_dates || ['day-1']
-      showToast('Existing pass confirmed for this number. Loading your E-Pass...')
-      navigateTo('ticket-summary', true)
+    // If phone number is already registered, trigger reminder modal
+    if (result.alreadyRegistered) {
+      alreadyRegisteredMsg.value = 'This WhatsApp number has already been registered for the event. Each guest is eligible for 1 registration pass only.'
+      isAlreadyRegisteredOpen.value = true
       return
     }
 
     if (result.found) {
       const role = result.guest?.role || defaultRole
-      activeUserData.value = { ...result.guest, role, isRegistered: false }
+      activeUserData.value = { ...result.guest, role, isRegistered: true }
     } else {
       activeUserData.value = {
         phone: rawDigits,
@@ -399,6 +400,18 @@ const handleCheckNumber = async () => {
 
 const handleDetailsSubmit = async (formData) => {
   const rawPhone = phoneNumber.value.replace(/\D/g, '') || activeUserData.value?.phone || '81707909707'
+  const enteredEmail = formData.email || activeUserData.value?.email
+
+  // Check email uniqueness before proceeding to prevent duplicate database entries
+  if (enteredEmail && enteredEmail !== 'guest@707.co.id') {
+    const emailCheck = await apiCheckEmail(enteredEmail, rawPhone)
+    if (emailCheck && emailCheck.alreadyRegistered) {
+      alreadyRegisteredMsg.value = 'This email address is already registered to another guest. Each guest is eligible for 1 registration pass only.'
+      isAlreadyRegisteredOpen.value = true
+      return
+    }
+  }
+
   const mergedData = { 
     ...activeUserData.value, 
     ...formData, 
@@ -409,16 +422,12 @@ const handleDetailsSubmit = async (formData) => {
   }
   activeUserData.value = mergedData
   
-  // Persist guest details to SQLite backend with duplicate email verification
-  try {
-    const saveRes = await apiSaveGuest(mergedData)
-    // Only display toast and block if it's an explicit validation error from backend (e.g. duplicate email), ignore raw network fetch errors
-    if (saveRes && saveRes.error && saveRes.status === 400 && !saveRes.isNetworkError && saveRes.error !== 'Load failed' && saveRes.error !== 'Failed to fetch') {
-      showToast(saveRes.error)
-      return
-    }
-  } catch (err) {
-    console.warn('[Save Guest Exception]', err)
+  // Persist guest details to SQLite backend
+  const saveRes = await apiSaveGuest(mergedData)
+  if (saveRes && saveRes.error) {
+    alreadyRegisteredMsg.value = saveRes.error
+    isAlreadyRegisteredOpen.value = true
+    return
   }
 
   navigateTo('select-dates')
@@ -438,6 +447,7 @@ const handleDatesSubmit = async (dates) => {
 
   // Generate 3-digit unique alphanumeric Access ID (excluding ambiguous 0, O, 1, I, L)
   const accessId = generateShortAccessId(3)
+
   const phone = activeUserData.value?.phone || phoneNumber.value.replace(/\D/g, '') || '81707909707'
 
   // STEP 1: MUST FIRST save/upsert guest profile to POST /api/guests BEFORE reservations
@@ -454,24 +464,21 @@ const handleDatesSubmit = async (dates) => {
   await apiSaveGuest(guestPayload)
 
   // STEP 2: THEN create reservation with POST /api/reservations
-  const res = await apiCreateReservation({
+  await apiCreateReservation({
     phone,
     accessId,
     selectedDates: dates
   })
 
-  const finalAccessId = res?.access_id || res?.accessId || accessId
-
   // Attach access_id to activeUserData for instant real-time sync
   if (activeUserData.value) {
-    activeUserData.value.access_id = finalAccessId
+    activeUserData.value.access_id = accessId
     activeUserData.value.phone = phone
-    activeUserData.value.isRegistered = true
   } else {
-    activeUserData.value = { ...guestPayload, access_id: finalAccessId, isRegistered: true }
+    activeUserData.value = { ...guestPayload, access_id: accessId }
   }
 
-  // Once dates are selected, lock into ticket-summary with history replace to prevent navigating back
+  // Replace history so user cannot navigate back to select-dates from ticket-summary
   navigateTo('ticket-summary', true)
 }
 </script>
@@ -487,37 +494,35 @@ const handleDatesSubmit = async (dates) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  position: relative;
-  padding-bottom: 24px;
 }
 
+/* Toast Alert Notification */
 .toast-notification {
   position: fixed;
-  top: 24px;
+  bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
   background-color: #000000;
   color: #ffffff;
   padding: 12px 20px;
-  border-radius: 30px;
+  border-radius: 0;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 13px;
   font-weight: 500;
+  letter-spacing: 0.02em;
   z-index: 10000;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
-  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translate(-50%, -20px);
+  transform: translate(-50%, 10px);
 }
 </style>

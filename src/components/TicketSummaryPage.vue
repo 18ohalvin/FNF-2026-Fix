@@ -58,16 +58,9 @@
           </span>
         </div>
 
-        <!-- Row 4: Selected Access Dates & Valid For -->
+        <!-- Row 4: Selected Access Dates -->
         <div class="access-dates-block">
-          <div class="valid-for-header">
-            <span class="access-valid-label">VALID FOR</span>
-            <div class="valid-for-summary-lines">
-              <span v-for="(line, idx) in formattedValidForLines" :key="idx" class="valid-for-line-item">
-                {{ line }}
-              </span>
-            </div>
-          </div>
+          <span class="access-valid-label">ACCESS VALID FOR:</span>
           <div class="selected-dates-list">
             <div
               v-for="item in resolvedSelectedDates"
@@ -110,7 +103,6 @@ import { ref, computed } from 'vue'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import CtaButton from './CtaButton.vue'
-import { formatValidForLines } from '../utils/formatValidFor'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
 
@@ -174,11 +166,6 @@ const resolvedSelectedDates = computed(() => {
   })
 })
 
-// Format "VALID FOR" matching: VIP: DAY 1 <enter> PUBLIC: ALL DAY (or PUBLIC: DAY 2, 4)
-const formattedValidForLines = computed(() => {
-  return formatValidForLines(resolvedSelectedDates.value, props.userDetails?.role)
-})
-
 // Split guest name into lines (e.g. Line 1: "MR. ALVIN", Line 2: "DECOROUS")
 const guestNameLines = computed(() => {
   const sal = (props.userDetails.salutation || '').trim()
@@ -225,6 +212,52 @@ const computedAccessId = computed(() => {
     return props.userDetails.access_id
   }
   return '707'
+})
+
+// Computed multi-tier VALID FOR lines (e.g. "VIP: DAY 1", "PUBLIC: ALL DAY" or "PUBLIC: DAY 2, 4")
+const validForLines = computed(() => {
+  const isVip = (props.userDetails.role || '').toUpperCase().includes('VIP')
+  const rawDates = (Array.isArray(props.selectedDates) && props.selectedDates.length > 0)
+    ? props.selectedDates
+    : (Array.isArray(props.selectedDateIds) && props.selectedDateIds.length > 0)
+      ? props.selectedDateIds
+      : (props.userDetails?.selectedDates || props.userDetails?.selected_dates || ['day-1'])
+
+  let arr = Array.isArray(rawDates) ? rawDates : []
+  if (typeof rawDates === 'string') {
+    try {
+      arr = JSON.parse(rawDates)
+    } catch (e) {
+      arr = rawDates.split(',').map(s => s.trim())
+    }
+  }
+
+  const normalized = arr.map(k => {
+    if (typeof k === 'object' && k.id) return String(k.id).toLowerCase().trim()
+    return String(k).toLowerCase().trim()
+  })
+
+  const hasDay1 = normalized.some(k => k === 'day-1' || k === '1' || k.includes('day 1'))
+  const publicDays = ['day-2', 'day-3', 'day-4', 'day-5'].filter(d => 
+    normalized.some(k => k === d || k === d.replace('day-', '') || k === d.replace('-', ' '))
+  )
+
+  const lines = []
+  if (hasDay1) {
+    lines.push('VIP: DAY 1')
+  }
+  if (publicDays.length === 4) {
+    lines.push('PUBLIC: ALL DAY')
+  } else if (publicDays.length > 0) {
+    const nums = publicDays.map(d => d.replace('day-', '')).join(', ')
+    lines.push(`PUBLIC: DAY ${nums}`)
+  }
+
+  if (lines.length === 0) {
+    lines.push(isVip ? 'VIP: DAY 1' : 'PUBLIC: DAY 2')
+  }
+
+  return lines
 })
 
 // Generate & Download high-resolution E-Pass PDF with Clickable Sponsor Promo Link
@@ -301,7 +334,7 @@ const handleDownloadEPassPdf = async () => {
       c.arcTo(x + w, y, x + w, y + h, r)
       c.arcTo(x + w, y + h, x, y + h, r)
       c.arcTo(x, y + h, x, y, r)
-      c.arcTo(x, y + x, y, r)
+      c.arcTo(x, y + x + w, y, r)
       c.closePath()
     }
 
@@ -348,17 +381,14 @@ const handleDownloadEPassPdf = async () => {
     ctx.fillText('VALID FOR', 24, 438)
     ctx.fillText('ACCESS ID', 216, 438)
 
-    const validLines = formattedValidForLines.value
-    if (validLines.length === 1) {
-      ctx.font = "500 15px 'Helvetica Neue', Arial, sans-serif"
-      ctx.fillText(validLines[0], 24, 462)
+    ctx.font = "500 14px 'Helvetica Neue', Arial, sans-serif"
+    const lines = validForLines.value
+    if (lines.length === 1) {
+      ctx.fillText(lines[0], 24, 462)
     } else {
-      ctx.font = "500 12.5px 'Helvetica Neue', Arial, sans-serif"
-      ctx.fillText(validLines[0], 24, 458)
-      ctx.fillText(validLines[1], 24, 476)
+      ctx.fillText(lines[0], 24, 458)
+      ctx.fillText(lines[1], 24, 478)
     }
-
-    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
     ctx.fillText(accessId, 216, 462)
 
     // 6. Ad Banner Image (Y: 510, X: 24, W: 354, H: 177)
@@ -521,37 +551,15 @@ const handleDownloadEPassPdf = async () => {
 .access-dates-block {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.valid-for-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .access-valid-label {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 12px;
-  font-weight: 300;
+  font-weight: 400;
   color: #000000;
   line-height: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.valid-for-summary-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.valid-for-line-item {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  font-weight: 500;
-  color: #000000;
-  line-height: 20px;
   text-transform: uppercase;
 }
 
@@ -559,7 +567,6 @@ const handleDownloadEPassPdf = async () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .date-summary-card {

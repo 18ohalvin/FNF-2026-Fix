@@ -282,13 +282,21 @@ class DatabaseAdapter {
     await this.connect()
     const mail = String(email).trim().toLowerCase()
     if (this.driverType === 'postgres') {
-      const res = await this.pgPool.query(`SELECT * FROM guests WHERE LOWER(email) = $1 LIMIT 1`, [mail])
+      const res = await this.pgPool.query(
+        `SELECT * FROM guests WHERE LOWER(email) = $1 LIMIT 1`,
+        [mail]
+      )
       return res.rows[0] || null
     } else if (this.driverType === 'mysql') {
-      const [rows] = await this.mysqlPool.query(`SELECT * FROM guests WHERE LOWER(email) = ? LIMIT 1`, [mail])
+      const [rows] = await this.mysqlPool.query(
+        `SELECT * FROM guests WHERE LOWER(email) = ? LIMIT 1`,
+        [mail]
+      )
       return rows[0] || null
     } else {
-      return this.sqliteDb.prepare(`SELECT * FROM guests WHERE LOWER(email) = ? LIMIT 1`).get(mail) || null
+      return this.sqliteDb.prepare(
+        `SELECT * FROM guests WHERE LOWER(email) = ? LIMIT 1`
+      ).get(mail) || null
     }
   }
 
