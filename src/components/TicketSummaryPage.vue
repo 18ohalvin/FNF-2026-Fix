@@ -71,28 +71,15 @@
           </div>
         </div>
 
-        <!-- Download PDF Action Option -->
-        <div class="download-pdf-wrapper">
-          <button
-            type="button"
-            class="download-pdf-btn"
-            :disabled="isDownloading"
-            @click="handleDownloadEPassPdf"
-          >
-            <span v-if="isDownloading">GENERATING PDF...</span>
-            <span v-else>DOWNLOAD E-PASS (PDF)</span>
-          </button>
-        </div>
-
         <!-- Row 5: Notice Info with Contact Support Link -->
         <div class="ticket-notice-box">
           <div class="info-icon-holder">
             <img src="../assets/icon-info.svg" alt="Information" class="info-icon" />
           </div>
           <div class="notice-text-content">
-            <p class="notice-heading">DIDN'T RECEIVE THE EMAIL?</p>
+            <p class="notice-heading">SAVE YOUR E-PASS</p>
             <p class="notice-body">
-              Check your spam folder or
+              Tap the button below to download and save your E-Pass PDF to your device. Present it at the entrance checkpoint. Need help?
               <a
                 href="https://wa.me/6281277208270"
                 target="_blank"
@@ -102,14 +89,22 @@
             </p>
           </div>
         </div>
+
+        <!-- Finish / Return Home Option (Shows after downloading) -->
+        <div v-if="hasDownloaded" class="finish-flow-wrapper">
+          <button type="button" class="finish-flow-btn" @click="emit('home')">
+            DONE / RETURN TO HOME
+          </button>
+        </div>
       </div>
     </main>
 
-    <!-- Sticky Bottom CTA Button: DONE -->
+    <!-- Sticky Bottom CTA Button: DOWNLOAD E-PASS -->
     <CtaButton
       :active="true"
-      label="DONE"
-      @click="emit('home')"
+      :loading="isDownloading"
+      :label="hasDownloaded ? 'DOWNLOAD AGAIN' : 'DOWNLOAD E-PASS'"
+      @click="handleDownloadEPassPdf"
     />
   </div>
 </template>
@@ -142,6 +137,7 @@ const props = defineProps({
 const emit = defineEmits(['back', 'home'])
 
 const isDownloading = ref(false)
+const hasDownloaded = ref(false)
 
 // Resolve selected event date objects for display
 const resolvedSelectedDates = computed(() => {
@@ -374,9 +370,10 @@ const handleDownloadEPassPdf = async () => {
     // Clickable Hyperlink Annotation over Sponsor Promo Banner
     const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
     pdf.link(24, 510, 354, 177, { url: promoLink })
-
+    
     // Save as PDF file
     pdf.save(`FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`)
+    hasDownloaded.value = true
   } catch (err) {
     console.error('Error generating PDF pass download:', err)
   } finally {
@@ -402,63 +399,81 @@ const handleDownloadEPassPdf = async () => {
 }
 
 .success-title-box {
-  margin-bottom: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
 }
 
-.success-line {
+.check-icon-holder {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.check-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.page-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 32px;
-  font-weight: 400;
-  line-height: 32px;
+  font-size: 18px;
+  font-weight: 500;
   color: #000000;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
   margin: 0;
-  letter-spacing: -0.01em;
 }
 
-.identity-section {
+.summary-data-list {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 16px;
 }
 
 .two-col-row {
-  display: flex;
-  gap: 32px;
-  width: 100%;
-}
-
-.two-col-row > .info-block {
-  flex: 1;
-  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
 .info-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .info-label {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 12px;
-  font-weight: 300;
+  font-weight: 400;
   color: #000000;
   line-height: 16px;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .info-value {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: #000000;
   line-height: 20px;
+  text-transform: uppercase;
 }
 
-.guest-name {
-  word-break: break-word;
+.guest-name-value {
+  display: flex;
+  flex-direction: column;
+}
+
+.guest-name-line {
+  margin: 0;
+  line-height: 20px;
 }
 
 .venue-value {
@@ -597,12 +612,12 @@ const handleDownloadEPassPdf = async () => {
   cursor: pointer;
 }
 
-.download-pdf-wrapper {
+.finish-flow-wrapper {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
-.download-pdf-btn {
+.finish-flow-btn {
   width: 100%;
   height: 48px;
   background-color: transparent;
@@ -622,13 +637,8 @@ const handleDownloadEPassPdf = async () => {
   box-sizing: border-box;
 }
 
-.download-pdf-btn:hover:not(:disabled) {
+.finish-flow-btn:hover {
   background-color: #000000;
   color: #ffffff;
-}
-
-.download-pdf-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>
