@@ -251,8 +251,10 @@ app.post('/api/guests', async (req, res) => {
         if (existingRaw !== currentRaw) {
           const existingRes = await db.getReservationByPhone(existingEmailGuest.phone)
           if (existingRes || existingEmailGuest.is_registered === 1) {
-            return res.status(400).json({
-              error: 'This email address is already registered to another guest. Please use a different email.'
+            return res.json({
+              success: false,
+              alreadyRegistered: true,
+              error: 'This email address is already registered to another guest. Each guest is eligible for 1 registration pass only.'
             })
           }
         }

@@ -400,15 +400,19 @@ const handleCheckNumber = async () => {
 
 const handleDetailsSubmit = async (formData) => {
   const rawPhone = phoneNumber.value.replace(/\D/g, '') || activeUserData.value?.phone || '81707909707'
-  const enteredEmail = formData.email || activeUserData.value?.email
+  const enteredEmail = (formData.email || activeUserData.value?.email || '').trim()
 
   // Check email uniqueness before proceeding to prevent duplicate database entries
   if (enteredEmail && enteredEmail !== 'guest@707.co.id') {
-    const emailCheck = await apiCheckEmail(enteredEmail, rawPhone)
-    if (emailCheck && emailCheck.alreadyRegistered) {
-      alreadyRegisteredMsg.value = 'This email address is already registered to another guest. Each guest is eligible for 1 registration pass only.'
-      isAlreadyRegisteredOpen.value = true
-      return
+    try {
+      const emailCheck = await apiCheckEmail(enteredEmail, rawPhone)
+      if (emailCheck && emailCheck.alreadyRegistered) {
+        alreadyRegisteredMsg.value = 'This email address is already registered to another guest. Each guest is eligible for 1 registration pass only.'
+        isAlreadyRegisteredOpen.value = true
+        return
+      }
+    } catch (e) {
+      console.warn('[Email Check Warning]', e)
     }
   }
 
@@ -418,16 +422,20 @@ const handleDetailsSubmit = async (formData) => {
     phone: rawPhone,
     firstName: formData.firstName || activeUserData.value?.firstName || 'GUEST',
     lastName: formData.lastName || activeUserData.value?.lastName || '',
-    email: formData.email || activeUserData.value?.email || 'guest@707.co.id'
+    email: enteredEmail || 'guest@707.co.id'
   }
   activeUserData.value = mergedData
   
   // Persist guest details to SQLite backend
-  const saveRes = await apiSaveGuest(mergedData)
-  if (saveRes && saveRes.error) {
-    alreadyRegisteredMsg.value = saveRes.error
-    isAlreadyRegisteredOpen.value = true
-    return
+  try {
+    const saveRes = await apiSaveGuest(mergedData)
+    if (saveRes && saveRes.alreadyRegistered) {
+      alreadyRegisteredMsg.value = saveRes.error || 'This email address has already been registered for the event.'
+      isAlreadyRegisteredOpen.value = true
+      return
+    }
+  } catch (err) {
+    console.warn('[Save Guest Warning]', err)
   }
 
   navigateTo('select-dates')
