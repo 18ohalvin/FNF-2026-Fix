@@ -8,6 +8,66 @@ import path from 'path'
 dotenv.config()
 
 /**
+ * Format "VALID FOR" lines matching business rules
+ */
+export function formatValidForLines(selectedDates, role = 'VIP GUEST') {
+  const isVipRole = (role || '').toUpperCase().includes('VIP')
+  let arr = []
+  if (Array.isArray(selectedDates)) {
+    arr = selectedDates
+  } else if (typeof selectedDates === 'string') {
+    try {
+      arr = JSON.parse(selectedDates)
+    } catch (e) {
+      arr = selectedDates.split(',').map(s => s.trim())
+    }
+  }
+
+  const tokens = arr.map(item => {
+    if (typeof item === 'object' && item !== null) {
+      if (item.id) return String(item.id).toLowerCase()
+      if (item.day) return String(item.day).toLowerCase()
+    }
+    return String(item).toLowerCase()
+  })
+
+  const hasVipDay = tokens.some(t => t === 'day-1' || t === '1' || t.includes('vip') || t.includes('day 1'))
+  const publicDayNums = []
+  const publicMap = [
+    { num: 2, keys: ['day-2', '2', 'day 2'] },
+    { num: 3, keys: ['day-3', '3', 'day 3'] },
+    { num: 4, keys: ['day-4', '4', 'day 4'] },
+    { num: 5, keys: ['day-5', '5', 'day 5'] }
+  ]
+
+  for (const item of publicMap) {
+    if (tokens.some(t => item.keys.some(k => t === k || t.includes(k)))) {
+      publicDayNums.push(item.num)
+    }
+  }
+
+  const lines = []
+  if (hasVipDay) {
+    lines.push('VIP: DAY 1')
+  }
+  if (publicDayNums.length === 4) {
+    lines.push('PUBLIC: ALL DAY')
+  } else if (publicDayNums.length > 0) {
+    lines.push(`PUBLIC: DAY ${publicDayNums.join(', ')}`)
+  }
+
+  if (lines.length === 0) {
+    if (isVipRole) {
+      lines.push('VIP: DAY 1')
+    } else {
+      lines.push('PUBLIC: ALL DAY')
+    }
+  }
+
+  return lines
+}
+
+/**
  * SMTP Transactional Email Dispatcher for 707 Event E-Passes with PDF Attachment
  */
 class MailerService {
@@ -157,14 +217,16 @@ class MailerService {
     doc.text('ACCESS ID', 216, 438)
 
     doc.setFont('Helvetica', 'bold')
-    doc.setFontSize(16)
-    let validStr = 'Day 1'
-    if (Array.isArray(selectedDates)) {
-      validStr = selectedDates.join(', ')
-    } else if (typeof selectedDates === 'string') {
-      validStr = selectedDates
+    const validForLines = formatValidForLines(selectedDates, role)
+    if (validForLines.length === 1) {
+      doc.setFontSize(15)
+      doc.text(validForLines[0], 24, 462)
+    } else {
+      doc.setFontSize(12)
+      doc.text(validForLines[0], 24, 458)
+      doc.text(validForLines[1], 24, 475)
     }
-    doc.text(validStr, 24, 462)
+    doc.setFontSize(16)
     doc.text(accessId, 216, 462)
 
     // 6. Promotional Banner with Clickable Hyperlink

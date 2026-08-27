@@ -243,6 +243,12 @@ const handlePopState = (event) => {
   }
   checkRegistrationTypeFromUrl()
 
+  // Prevent users from going back once arrival dates are selected and pass is issued
+  if (currentPage.value === 'ticket-summary') {
+    history.pushState({ page: 'ticket-summary' }, '', window.location.pathname)
+    return
+  }
+
   if (event.state && event.state.page) {
     currentPage.value = event.state.page
   } else if (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/login')) {
@@ -333,7 +339,7 @@ const showToast = (msg) => {
   }, 2800)
 }
 
-// Database check logic using API client with fallback
+// Database check logic with 1-chance registration & duplicate prevention
 const handleCheckNumber = async () => {
   if (!isPhoneValid.value || isCheckingDatabase.value) return
 
@@ -345,9 +351,24 @@ const handleCheckNumber = async () => {
     const result = await apiCheckPhone(rawDigits)
     isCheckingDatabase.value = false
 
+    // If guest is already registered, load their confirmed ticket pass directly to prevent duplicate records
+    if (result.found && (result.isRegistered || result.reservation)) {
+      const role = result.guest?.role || defaultRole
+      activeUserData.value = {
+        ...result.guest,
+        role,
+        access_id: result.reservation?.access_id || result.guest?.access_id || '707',
+        isRegistered: true
+      }
+      selectedEventDates.value = result.reservation?.selected_dates || result.guest?.selected_dates || ['day-1']
+      showToast('Existing pass confirmed for this number. Loading your E-Pass...')
+      navigateTo('ticket-summary', true)
+      return
+    }
+
     if (result.found) {
       const role = result.guest?.role || defaultRole
-      activeUserData.value = { ...result.guest, role, isRegistered: true }
+      activeUserData.value = { ...result.guest, role, isRegistered: false }
     } else {
       activeUserData.value = {
         phone: rawDigits,
@@ -388,8 +409,17 @@ const handleDetailsSubmit = async (formData) => {
   }
   activeUserData.value = mergedData
   
-  // Persist guest details to SQLite backend
-  await apiSaveGuest(mergedData)
+  // Persist guest details to SQLite backend with duplicate email verification
+  try {
+    const saveRes = await apiSaveGuest(mergedData)
+    if (saveRes && saveRes.error) {
+      showToast(saveRes.error)
+      return
+    }
+  } catch (err) {
+    console.warn('[Save Guest Exception]', err)
+  }
+
   navigateTo('select-dates')
 }
 
@@ -407,7 +437,6 @@ const handleDatesSubmit = async (dates) => {
 
   // Generate 3-digit unique alphanumeric Access ID (excluding ambiguous 0, O, 1, I, L)
   const accessId = generateShortAccessId(3)
-
   const phone = activeUserData.value?.phone || phoneNumber.value.replace(/\D/g, '') || '81707909707'
 
   // STEP 1: MUST FIRST save/upsert guest profile to POST /api/guests BEFORE reservations
@@ -424,21 +453,25 @@ const handleDatesSubmit = async (dates) => {
   await apiSaveGuest(guestPayload)
 
   // STEP 2: THEN create reservation with POST /api/reservations
-  await apiCreateReservation({
+  const res = await apiCreateReservation({
     phone,
     accessId,
     selectedDates: dates
   })
 
+  const finalAccessId = res?.access_id || res?.accessId || accessId
+
   // Attach access_id to activeUserData for instant real-time sync
   if (activeUserData.value) {
-    activeUserData.value.access_id = accessId
+    activeUserData.value.access_id = finalAccessId
     activeUserData.value.phone = phone
+    activeUserData.value.isRegistered = true
   } else {
-    activeUserData.value = { ...guestPayload, access_id: accessId }
+    activeUserData.value = { ...guestPayload, access_id: finalAccessId, isRegistered: true }
   }
 
-  navigateTo('ticket-summary')
+  // Once dates are selected, lock into ticket-summary with history replace to prevent navigating back
+  navigateTo('ticket-summary', true)
 }
 </script>
 
