@@ -89,12 +89,12 @@ const props = defineProps({
 const emit = defineEmits(['close', 'select'])
 
 const allDaysList = [
-  { id: 'all', badge: 'ALL DAY', title: 'All Days', dateText: '02 September 2026', isoDate: '' },
+  { id: 'all', badge: 'ALL DAY', title: 'All Days', dateText: '02 - 06 September 2026', isoDate: '' },
   { id: 'day-1', badge: 'DAY 1', title: 'Day 1 - 02 September 2026', dateText: '02 September 2026', isoDate: '2026-09-02' },
-  { id: 'day-2', badge: 'DAY 2', title: 'Day 2 - 03 September 2026', dateText: '02 September 2026', isoDate: '2026-09-03' },
-  { id: 'day-3', badge: 'DAY 3', title: 'Day 3 - 04 September 2026', dateText: '02 September 2026', isoDate: '2026-09-04' },
-  { id: 'day-4', badge: 'DAY 4', title: 'Day 4 - 05 September 2026', dateText: '02 September 2026', isoDate: '2026-09-05' },
-  { id: 'day-5', badge: 'DAY 5', title: 'Day 5 - 06 September 2026', dateText: '02 September 2026', isoDate: '2026-09-06' }
+  { id: 'day-2', badge: 'DAY 2', title: 'Day 2 - 03 September 2026', dateText: '03 September 2026', isoDate: '2026-09-03' },
+  { id: 'day-3', badge: 'DAY 3', title: 'Day 3 - 04 September 2026', dateText: '04 September 2026', isoDate: '2026-09-04' },
+  { id: 'day-4', badge: 'DAY 4', title: 'Day 4 - 05 September 2026', dateText: '05 September 2026', isoDate: '2026-09-05' },
+  { id: 'day-5', badge: 'DAY 5', title: 'Day 5 - 06 September 2026', dateText: '06 September 2026', isoDate: '2026-09-06' }
 ]
 
 const eventDays = computed(() => {

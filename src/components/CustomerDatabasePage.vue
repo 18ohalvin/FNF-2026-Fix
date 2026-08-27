@@ -99,11 +99,72 @@
         </button>
       </div>
 
+      <!-- Bulk Action Bar when 1 or more guests are selected -->
+      <Transition name="fade">
+        <div v-if="selectedPhones.length > 0" class="bulk-action-bar">
+          <div class="bulk-info-left">
+            <span class="bulk-count-badge">{{ selectedPhones.length }}</span>
+            <span class="bulk-count-text">Guest{{ selectedPhones.length > 1 ? 's' : '' }} Selected</span>
+            <button
+              type="button"
+              class="bulk-select-all-btn"
+              @click="toggleSelectAll"
+            >
+              {{ isAllSelected ? 'Deselect All' : `Select All (${guests.length})` }}
+            </button>
+          </div>
+
+          <div class="bulk-actions-right">
+            <button
+              type="button"
+              class="bulk-cancel-btn"
+              :disabled="isBulkDeleting"
+              @click="clearSelection"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              class="bulk-delete-btn"
+              :disabled="isBulkDeleting"
+              @click="handleBulkDelete"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              <span>{{ isBulkDeleting ? 'DELETING...' : `DELETE SELECTED (${selectedPhones.length})` }}</span>
+            </button>
+          </div>
+        </div>
+      </Transition>
+
       <!-- GUEST DATABASE TABLE (Figma 448:958) -->
       <div class="table-scroll-container">
         <div class="guest-table-wrapper">
           <!-- Table Header Row -->
           <div class="table-header-row">
+            <!-- Header Select Checkbox -->
+            <div class="col-select">
+              <button
+                type="button"
+                class="header-checkbox-btn"
+                :class="{ checked: isAllSelected, indeterminate: isSomeSelected }"
+                title="Select / Deselect All"
+                @click="toggleSelectAll"
+              >
+                <svg v-if="isAllSelected" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg v-else-if="isSomeSelected" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+
             <div class="col-type">GUEST TYPE</div>
             <div class="col-name">GUEST NAME</div>
             <div class="col-access">ACCESS ID</div>
@@ -127,7 +188,20 @@
             v-else
             :key="guest.phone"
             class="table-body-row"
+            :class="{ 'row-selected': selectedPhones.includes(guest.phone) }"
           >
+            <!-- Row Multi-Select Checkbox -->
+            <div class="col-select" @click.stop="toggleSelectGuest(guest.phone)">
+              <div
+                class="row-checkbox"
+                :class="{ checked: selectedPhones.includes(guest.phone) }"
+              >
+                <svg v-if="selectedPhones.includes(guest.phone)" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+            </div>
+
             <!-- Guest Type (Figma: VIP / REGULAR) -->
             <div class="col-type">
               <span class="guest-type-text">
@@ -180,7 +254,7 @@
                 type="button"
                 class="override-action-btn"
                 :class="guest.is_checked_in ? 'btn-force-out' : 'btn-check-in'"
-                :disabled="isActionProcessing"
+                :disabled="isActionProcessing || isBulkDeleting"
                 @click="handleOverride(guest)"
               >
                 {{ guest.is_checked_in ? 'FORCE OUT' : 'CHECK-IN' }}
@@ -190,7 +264,7 @@
                 type="button"
                 class="view-pass-btn"
                 title="View & Download E-Pass"
-                :disabled="isActionProcessing"
+                :disabled="isActionProcessing || isBulkDeleting"
                 @click="handleViewPass(guest)"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -204,7 +278,7 @@
                 type="button"
                 class="edit-guest-btn"
                 title="Edit Guest Details"
-                :disabled="isActionProcessing"
+                :disabled="isActionProcessing || isBulkDeleting"
                 @click="handleOpenEdit(guest)"
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -217,7 +291,7 @@
                 type="button"
                 class="delete-guest-btn"
                 title="Delete Guest Record"
-                :disabled="isActionProcessing"
+                :disabled="isActionProcessing || isBulkDeleting"
                 @click="handleDelete(guest)"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -237,6 +311,7 @@
     <CalendarModal
       :is-open="isCalendarOpen"
       :selected-date="selectedEventDayText"
+      :show-all-option="true"
       @close="isCalendarOpen = false"
       @select="handleDaySelect"
     />
@@ -259,10 +334,8 @@
     <!-- Toast Notification for Alerts & Override Errors -->
     <Transition name="toast">
       <div v-if="toastMessage" class="toast-notification">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" stroke-width="2" style="flex-shrink: 0;">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52c41a" stroke-width="2" style="flex-shrink: 0;">
+          <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
         <span>{{ toastMessage }}</span>
       </div>
@@ -271,8 +344,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { apiFetchCustomerDatabase, apiOverrideGuestStatus, apiDeleteGuest } from '../api/client'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import {
+  apiFetchCustomerDatabase,
+  apiOverrideGuestStatus,
+  apiDeleteGuest,
+  apiBulkDeleteGuests
+} from '../api/client'
 import CalendarModal from './CalendarModal.vue'
 import EditGuestModal from './EditGuestModal.vue'
 import ViewEPassModal from './ViewEPassModal.vue'
@@ -291,10 +369,54 @@ const currentFilter = ref('')
 const isFilterMenuOpen = ref(false)
 const isLoading = ref(true)
 const isActionProcessing = ref(false)
+const isBulkDeleting = ref(false)
 const isEditModalOpen = ref(false)
 const selectedEditGuest = ref(null)
 const isViewEPassOpen = ref(false)
 const selectedPassGuest = ref(null)
+const toastMessage = ref('')
+
+// Multi-Selection State
+const selectedPhones = ref([])
+
+const isAllSelected = computed(() => {
+  return guests.value.length > 0 && selectedPhones.value.length === guests.value.length
+})
+
+const isSomeSelected = computed(() => {
+  return selectedPhones.value.length > 0 && selectedPhones.value.length < guests.value.length
+})
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedPhones.value = []
+  } else {
+    selectedPhones.value = guests.value.map(g => g.phone).filter(Boolean)
+  }
+}
+
+const toggleSelectGuest = (phone) => {
+  if (!phone) return
+  const idx = selectedPhones.value.indexOf(phone)
+  if (idx > -1) {
+    selectedPhones.value.splice(idx, 1)
+  } else {
+    selectedPhones.value.push(phone)
+  }
+}
+
+const clearSelection = () => {
+  selectedPhones.value = []
+}
+
+const showToast = (msg) => {
+  toastMessage.value = msg
+  setTimeout(() => {
+    if (toastMessage.value === msg) {
+      toastMessage.value = ''
+    }
+  }, 3500)
+}
 
 const handleViewPass = (guest) => {
   selectedPassGuest.value = guest
@@ -316,6 +438,7 @@ const handleOpenEdit = (guest) => {
 const handleDaySelect = (dayTitle) => {
   selectedEventDayText.value = dayTitle
   isCalendarOpen.value = false
+  selectedPhones.value = []
   loadGuests(true)
 }
 
@@ -326,7 +449,6 @@ const loadGuests = async (showLoadingSpinner = false) => {
     : selectedEventDayText.value
   const res = await apiFetchCustomerDatabase(searchQuery.value, currentFilter.value, dayParam)
   
-  // Double-check mapping: support res.guests, res.data.guests, res.data, or array res
   if (res) {
     if (Array.isArray(res.guests)) {
       guests.value = res.guests
@@ -346,6 +468,7 @@ const loadGuests = async (showLoadingSpinner = false) => {
 const handleSearch = () => {
   clearTimeout(searchDebounce)
   searchDebounce = setTimeout(() => {
+    selectedPhones.value = []
     loadGuests(true)
   }, 300)
 }
@@ -353,6 +476,7 @@ const handleSearch = () => {
 const applyFilter = (filterType) => {
   currentFilter.value = filterType
   isFilterMenuOpen.value = false
+  selectedPhones.value = []
   loadGuests(true)
 }
 
@@ -379,23 +503,13 @@ const formatScanTime = (scannedAt, isCheckedIn) => {
     const d = new Date(scannedAt)
     if (isNaN(d.getTime())) return 'Day 1 - 12:11 PM'
     const hours = d.getHours()
-    const minutes = d.getMinutes().toString().padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
     const ampm = hours >= 12 ? 'PM' : 'AM'
     const formattedHours = hours % 12 || 12
     return `Day 1 - ${formattedHours}:${minutes} ${ampm}`
   } catch (e) {
     return 'Day 1 - 12:11 PM'
   }
-}
-
-const toastMessage = ref('')
-const showToast = (msg) => {
-  toastMessage.value = msg
-  setTimeout(() => {
-    if (toastMessage.value === msg) {
-      toastMessage.value = ''
-    }
-  }, 3500)
 }
 
 const handleOverride = async (guest) => {
@@ -407,6 +521,7 @@ const handleOverride = async (guest) => {
     if (targetAction === 'check-in') {
       guest.last_scanned_at = new Date().toISOString()
     }
+    showToast(`Status updated for ${guest.first_name || guest.phone}`)
   } else {
     const errMsg = (res && res.error) || 'Override Failed: Phone number not found.'
     showToast(errMsg)
@@ -430,13 +545,13 @@ const handleDelete = async (guest) => {
 
   isActionProcessing.value = true
   const targetPhone = guest.phone
-  // Optimistically remove from UI list immediately
   guests.value = guests.value.filter((g) => g.phone !== targetPhone)
+  selectedPhones.value = selectedPhones.value.filter(p => p !== targetPhone)
 
   try {
     const res = await apiDeleteGuest(targetPhone)
-    if (!res || !res.success) {
-      console.warn('[Delete guest warning]', res)
+    if (res && res.success) {
+      showToast(`Guest record "${guestName}" deleted.`)
     }
   } catch (err) {
     console.error('[Delete Guest Exception]', err)
@@ -446,12 +561,49 @@ const handleDelete = async (guest) => {
   }
 }
 
+// Bulk Delete Multiple Guests
+const handleBulkDelete = async () => {
+  if (selectedPhones.value.length === 0 || isBulkDeleting.value) return
+  const count = selectedPhones.value.length
+
+  let ok = true
+  try {
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      ok = window.confirm(`Are you sure you want to permanently delete ${count} selected guest record(s)? This action cannot be undone.`)
+    }
+  } catch (e) {
+    ok = true
+  }
+  if (!ok) return
+
+  isBulkDeleting.value = true
+  const targets = [...selectedPhones.value]
+
+  // Optimistically remove from UI list immediately
+  guests.value = guests.value.filter(g => !targets.includes(g.phone))
+  selectedPhones.value = []
+
+  try {
+    const res = await apiBulkDeleteGuests(targets)
+    if (res && res.success) {
+      showToast(`${res.count || count} guest record(s) deleted permanently.`)
+    } else {
+      showToast(res?.error || 'Bulk delete encountered an issue.')
+    }
+  } catch (err) {
+    console.error('[Bulk Delete Exception]', err)
+    showToast('Failed to delete selected guests.')
+  } finally {
+    isBulkDeleting.value = false
+    await loadGuests(false)
+  }
+}
+
 onMounted(() => {
   loadGuests(true)
-  // Auto-refresh guest list every 3 seconds for real-time synchronization across devices
   pollInterval = setInterval(() => {
     loadGuests(false)
-  }, 3000)
+  }, 4000)
 })
 
 onUnmounted(() => {
@@ -518,39 +670,36 @@ onUnmounted(() => {
 }
 
 .header-btn {
-  height: 40px;
-  padding: 0 16px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: 0;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.32px;
-  cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .outlined-btn {
-  background: transparent;
-  border: 1px solid #000000;
+  background-color: transparent;
   color: #000000;
+  border: 1px solid #000000;
 }
 
 .outlined-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .logo-wrapper {
-  height: 60px;
-  min-height: 60px;
-  max-height: 60px;
   display: flex;
-  justify-content: flex-end;
   align-items: center;
   gap: 16px;
-  box-sizing: border-box;
 }
 
 .header-logout-btn {
@@ -561,21 +710,17 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: #000000;
-  padding: 6px;
-  transition: all 0.2s ease;
-  opacity: 0.7;
+  padding: 8px;
+  transition: opacity 0.2s ease;
 }
 
 .header-logout-btn:hover {
-  opacity: 1;
-  color: #d32f2f;
-  transform: translateX(-2px);
+  opacity: 0.6;
 }
 
 .brand-logo {
-  height: 14px;
-  width: 45px;
-  object-fit: contain;
+  height: 18px;
+  width: auto;
   display: block;
 }
 
@@ -669,23 +814,29 @@ onUnmounted(() => {
   transition: background 0.15s ease;
 }
 
-.filter-menu-item:hover, .filter-menu-item.active {
-  background: #f2f2f2;
+.filter-menu-item:hover {
+  background: #f0f0f0;
+}
+
+.filter-menu-item.active {
+  background: #000000;
+  color: #ffffff;
 }
 
 .date-picker-btn {
   height: 48px;
-  padding: 0 14px;
+  padding: 0 20px;
   border: 1px solid #000000;
   background: transparent;
   color: #000000;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
+  letter-spacing: 0.32px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   white-space: nowrap;
   transition: all 0.2s ease;
 }
@@ -694,7 +845,119 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* DATABASE TABLE GRID (Figma 448:958) */
+.calendar-icon,
+.chevron-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* BULK ACTION TOOLBAR */
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #000000;
+  color: #ffffff;
+  padding: 12px 20px;
+  gap: 16px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.bulk-info-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bulk-count-badge {
+  background-color: #ffffff;
+  color: #000000;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+
+.bulk-count-text {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.bulk-select-all-btn {
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+}
+
+.bulk-select-all-btn:hover {
+  color: #ffffff;
+}
+
+.bulk-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bulk-cancel-btn {
+  background: transparent;
+  border: 1px solid #666666;
+  color: #ffffff;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bulk-cancel-btn:hover {
+  border-color: #ffffff;
+}
+
+.bulk-delete-btn {
+  background-color: #d32f2f;
+  border: none;
+  color: #ffffff;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.03em;
+  transition: background-color 0.15s ease;
+}
+
+.bulk-delete-btn:hover:not(:disabled) {
+  background-color: #b71c1c;
+}
+
+.bulk-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* GUEST DATABASE TABLE */
 .table-scroll-container {
   width: 100%;
   overflow-x: auto;
@@ -702,7 +965,7 @@ onUnmounted(() => {
 }
 
 .guest-table-wrapper {
-  min-width: 1000px;
+  min-width: 1060px;
   background: #f5f5f5;
   display: flex;
   flex-direction: column;
@@ -738,6 +1001,10 @@ onUnmounted(() => {
   background-color: #ededed;
 }
 
+.table-body-row.row-selected {
+  background-color: #e4e4e4;
+}
+
 .table-state-row {
   padding: 36px;
   text-align: center;
@@ -747,6 +1014,44 @@ onUnmounted(() => {
 }
 
 /* Column Dimensions & Styling matching Figma spec */
+.col-select {
+  width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.header-checkbox-btn,
+.row-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #000000;
+  background-color: transparent;
+  border-radius: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.header-checkbox-btn:hover,
+.row-checkbox:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.header-checkbox-btn.checked,
+.header-checkbox-btn.indeterminate,
+.row-checkbox.checked {
+  background-color: #000000;
+  border-color: #000000;
+}
+
 .col-type {
   width: 88px;
   padding: 12px 16px;
@@ -950,47 +1255,46 @@ onUnmounted(() => {
     gap: 16px;
   }
 
-  .header-action-buttons {
-    width: 100%;
-  }
-
-  .header-btn {
-    width: 100%;
-    justify-content: space-between;
-  }
-
   .search-filter-bar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .search-box-wrapper,
+  .filter-by-btn,
+  .date-picker-btn {
+    width: 100%;
+  }
+
+  .bulk-action-bar {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 12px;
   }
 
-  .search-box-wrapper, .filter-by-btn, .date-picker-btn {
+  .bulk-actions-right {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-end;
   }
 }
 
-/* Toast Notification Styles */
+/* TOAST NOTIFICATION */
 .toast-notification {
   position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 24px;
+  right: 24px;
   background-color: #000000;
   color: #ffffff;
   padding: 12px 20px;
-  border-radius: 30px;
+  border: 1px solid #333333;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 13px;
   font-weight: 500;
-  z-index: 10000;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   display: flex;
   align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-  pointer-events: none;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 10000;
 }
 
 .toast-enter-active,
@@ -1001,6 +1305,6 @@ onUnmounted(() => {
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translate(-50%, -20px);
+  transform: translateY(16px);
 }
 </style>

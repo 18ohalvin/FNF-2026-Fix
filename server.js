@@ -652,6 +652,25 @@ const handleDeleteGuest = async (phoneParam, res) => {
   }
 }
 
+// Helper: Shared Bulk Delete Guests Handler
+const handleBulkDeleteGuests = async (phones, res) => {
+  try {
+    if (!Array.isArray(phones) || phones.length === 0) {
+      return res.status(400).json({ success: false, error: 'No phone numbers provided for bulk deletion' })
+    }
+    let deletedCount = 0
+    for (const phone of phones) {
+      const rawParam = decodeURIComponent(phone || '')
+      const ok = await db.deleteGuest(rawParam)
+      if (ok) deletedCount++
+    }
+    res.json({ success: true, count: deletedCount, totalRequested: phones.length })
+  } catch (err) {
+    console.error('[API Bulk Delete Guests Error]', err)
+    res.status(500).json({ success: false, error: 'Internal server error during bulk delete' })
+  }
+}
+
 // 11. Manual Edit / Update Guest Endpoints (PUT & POST)
 app.put('/api/guests/:phone', requireStaffAuth, (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
 app.post('/api/guests/:phone/update', requireStaffAuth, (req, res) => handleUpdateGuest(req.params.phone, req.body, res))
@@ -661,6 +680,7 @@ app.post('/api/guests/update', requireStaffAuth, (req, res) => handleUpdateGuest
 app.delete('/api/guests/:phone', requireStaffAuth, (req, res) => handleDeleteGuest(req.params.phone, res))
 app.post('/api/guests/:phone/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.params.phone, res))
 app.post('/api/guests/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.body.phone, res))
+app.post('/api/guests/bulk-delete', requireStaffAuth, (req, res) => handleBulkDeleteGuests(req.body.phones, res))
 
 // Serve Static Frontend Assets from /dist
 app.use(express.static(distPath))

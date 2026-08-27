@@ -369,3 +369,19 @@ export async function apiUpdateGuestEmail(phone, email) {
     return { success: false, error: err.data?.error || err.message || 'Failed to update email.' }
   }
 }
+
+/**
+ * Bulk delete multiple guest records simultaneously
+ */
+export async function apiBulkDeleteGuests(phones) {
+  try {
+    return await fetchStaffApi('/api/guests/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones })
+    })
+  } catch (err) {
+    console.error('[API Client] Bulk delete guests failed:', err)
+    return { success: false, error: err.data?.error || err.message || 'Failed to bulk delete guests.' }
+  }
+}

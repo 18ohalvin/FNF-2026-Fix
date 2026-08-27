@@ -219,10 +219,11 @@
       @search="handleModalSearch"
     />
 
-    <!-- Event Day Selector Calendar Modal -->
+    <!-- Event Day Selector Calendar Modal (No "All Day" Option on Scanner) -->
     <CalendarModal
       :is-open="isCalendarOpen"
       :selected-date="eventDayText"
+      :show-all-option="false"
       @close="isCalendarOpen = false"
       @select="handleDaySelect"
     />
