@@ -329,12 +329,18 @@ const handleDownloadEPassPdf = async () => {
     const qrRadius = 5
 
     const drawRoundRect = (c, x, y, w, h, r) => {
+      if (typeof c.roundRect === 'function') {
+        c.beginPath()
+        c.roundRect(x, y, w, h, r)
+        c.closePath()
+        return
+      }
       c.beginPath()
       c.moveTo(x + r, y)
       c.arcTo(x + w, y, x + w, y + h, r)
       c.arcTo(x + w, y + h, x, y + h, r)
       c.arcTo(x, y + h, x, y, r)
-      c.arcTo(x, y + x + w, y, r)
+      c.arcTo(x, y, x + w, y, r)
       c.closePath()
     }
 
