@@ -782,24 +782,23 @@ process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception Thrown]', err)
 })
 
-// Start Server on all network interfaces (0.0.0.0)
+// Start Server
 app.listen(PORT, '0.0.0.0', () => {
   const interfaces = os.networkInterfaces()
-  const netIps = []
-  for (const devName of Object.keys(interfaces)) {
-    for (const iface of interfaces[devName]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        netIps.push({ name: devName, address: iface.address })
+  const addresses = []
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        addresses.push(net.address)
       }
     }
   }
+  const wifiIp = addresses[0] || '192.168.1.64'
 
   console.log(`==================================================`)
   console.log(`[Fullstack Server] 🚀 FIX 707 Form is listening on port ${PORT}`)
   console.log(`[Database Adapter]: ${db.driverType.toUpperCase()}`)
-  console.log(`[Local Host]: http://localhost:${PORT}`)
-  netIps.forEach(net => {
-    console.log(`[Network (${net.name})]: http://${net.address}:${PORT}`)
-  })
+  console.log(`[Localhost]:    http://localhost:${PORT}`)
+  console.log(`[WiFi Network]: http://${wifiIp}:${PORT}`)
   console.log(`==================================================`)
 })
