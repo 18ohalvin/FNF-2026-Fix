@@ -107,8 +107,10 @@
     <!-- Already Registered Bottom Sheet Modal (1 Number & 1 Email per Guest) -->
     <AlreadyRegisteredModal
       :is-open="isAlreadyRegisteredOpen"
+      :phone="phoneNumber"
       :message="alreadyRegisteredMsg"
       @close="isAlreadyRegisteredOpen = false"
+      @register-new="handleRegisterNewGuest"
     />
 
     <!-- Toast Notification -->
@@ -234,6 +236,11 @@ const handleGoHome = () => {
   activeUserData.value = null
   selectedEventDates.value = registrationType.value === 'public' ? ['day-2'] : ['day-1']
   navigateTo('landing', true)
+}
+
+const handleRegisterNewGuest = () => {
+  isAlreadyRegisteredOpen.value = false
+  phoneNumber.value = ''
 }
 
 const handlePopState = (event) => {

@@ -282,9 +282,9 @@ app.post('/api/guests', async (req, res) => {
 // 3b. Update Guest Email and Resend E-Pass (Self-Service)
 app.post('/api/guests/update-email', async (req, res) => {
   try {
-    const { phone, email } = req.body || {}
-    if (!phone || !email) {
-      return res.json({ success: false, error: 'Phone number and new email address are required' })
+    const { phone, email, currentEmail } = req.body || {}
+    if (!email) {
+      return res.json({ success: false, error: 'New email address is required' })
     }
 
     const trimmedEmail = String(email).trim().toLowerCase()
@@ -293,10 +293,13 @@ app.post('/api/guests/update-email', async (req, res) => {
       return res.json({ success: false, error: 'Please provide a valid email address' })
     }
 
-    const rawDigits = normalizePhoneNumber(phone)
-    const guest = await db.getGuestByPhone(rawDigits) || await db.getGuestByPhone(phone)
+    const rawDigits = normalizePhoneNumber(phone || '')
+    let guest = (rawDigits ? await db.getGuestByPhone(rawDigits) : null) || (phone ? await db.getGuestByPhone(phone) : null)
+    if (!guest && currentEmail) {
+      guest = await db.getGuestByEmail(String(currentEmail).trim().toLowerCase())
+    }
     if (!guest) {
-      return res.json({ success: false, error: 'Guest record not found' })
+      return res.json({ success: false, error: 'Guest record not found. Please try again.' })
     }
 
     // Verify email uniqueness against other registered guests
@@ -351,6 +354,46 @@ app.post('/api/guests/update-email', async (req, res) => {
   } catch (err) {
     console.error('[API Update Email Error]', err)
     res.json({ success: false, error: 'Internal server error updating email' })
+  }
+})
+
+// 3c. Resend E-Pass for Already Registered Guest (Self-Service)
+app.post('/api/resend-pass', async (req, res) => {
+  try {
+    const { phone } = req.body || {}
+    if (!phone) {
+      return res.json({ success: false, error: 'Phone number is required' })
+    }
+
+    const rawDigits = normalizePhoneNumber(phone)
+    const guest = (rawDigits ? await db.getGuestByPhone(rawDigits) : null) || await db.getGuestByPhone(phone)
+    if (!guest) {
+      return res.json({ success: false, error: 'No guest registered with this phone number.' })
+    }
+
+    const reservation = await db.getReservationByPhone(guest.phone)
+
+    try {
+      await mailer.dispatchEventPass({
+        guest,
+        reservation: reservation || {
+          access_id: guest?.access_id || '707',
+          selected_dates: ['day-1']
+        }
+      })
+    } catch (mailErr) {
+      console.warn('[Mailer Resend Warning]:', mailErr.message || mailErr)
+    }
+
+    res.json({
+      success: true,
+      message: 'Your E-Pass has been resent to your registered email.',
+      email: guest.email,
+      guest
+    })
+  } catch (err) {
+    console.error('[API Resend Pass Error]', err)
+    res.json({ success: false, error: 'Internal server error resending pass' })
   }
 })
 

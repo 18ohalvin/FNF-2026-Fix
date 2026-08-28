@@ -375,16 +375,32 @@ export async function apiDeleteGuest(phone) {
 /**
  * Public guest self-service: Update guest email and re-dispatch E-Pass
  */
-export async function apiUpdateGuestEmail(phone, email) {
+export async function apiUpdateGuestEmail(phone, email, currentEmail = '') {
   try {
     return await fetchWithApiFallback('/api/guests/update-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, email })
+      body: JSON.stringify({ phone, email, currentEmail })
     })
   } catch (err) {
     console.error('[API Client] Update email failed:', err)
     return { success: false, error: err.data?.error || err.message || 'Failed to update email.' }
+  }
+}
+
+/**
+ * Public guest self-service: Resend E-Pass to registered guest's email
+ */
+export async function apiResendPass(phone) {
+  try {
+    return await fetchWithApiFallback('/api/resend-pass', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    })
+  } catch (err) {
+    console.error('[API Client] Resend pass failed:', err)
+    return { success: false, error: err.data?.error || err.message || 'Failed to resend pass.' }
   }
 }
 

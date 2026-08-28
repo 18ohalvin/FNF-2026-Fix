@@ -25,26 +25,75 @@
             <div class="sheet-drag-handle"></div>
           </div>
 
-          <!-- Content Section -->
-          <div class="modal-body">
-            <h2 id="already-registered-modal-title" class="modal-title">ALREADY REGISTERED</h2>
-            <p class="modal-description">
-              {{ message || 'This WhatsApp number or email address has already been registered for the event.' }}
-            </p>
-            <p class="modal-subdescription">
-              Each guest is eligible for <strong>one (1) registration pass only</strong> to prevent duplicate entries. If you need to register for another person, please use a different number and email.
-            </p>
+          <!-- ================= STATE A: SUCCESS STATE ================= -->
+          <div v-if="isSuccess" class="modal-content-wrapper">
+            <div class="modal-body success-body">
+              <h2 id="already-registered-modal-title" class="modal-title success-title">
+                YOUR PASS HAS BEEN RESENT.
+              </h2>
+              <p class="modal-description">
+                A copy of your E-Pass has been sent to your registered email address.
+              </p>
+            </div>
+
+            <!-- Done Action Button -->
+            <button
+              type="button"
+              id="already-registered-done-btn"
+              class="modal-close-button"
+              @click="handleClose"
+            >
+              <span class="close-text">DONE</span>
+            </button>
           </div>
 
-          <!-- Action Button -->
-          <button
-            type="button"
-            id="already-registered-modal-close-btn"
-            class="modal-close-button"
-            @click="handleClose"
-          >
-            <span class="close-text">UNDERSTOOD</span>
-          </button>
+          <!-- ================= STATE B: DEFAULT FORM ================= -->
+          <div v-else class="modal-content-wrapper">
+            <div class="modal-body">
+              <h2 id="already-registered-modal-title" class="modal-title">
+                ALREADY REGISTERED
+              </h2>
+              <p class="modal-description">
+                A ticket has already been issued for this number.
+              </p>
+
+              <!-- Fail-safe Error Alert -->
+              <div v-if="errorMessage" class="error-box">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="error-icon">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span class="error-text">{{ errorMessage }}</span>
+              </div>
+            </div>
+
+            <!-- Action Button: RESEND MY E-PASS -->
+            <button
+              type="button"
+              id="already-registered-resend-btn"
+              class="modal-close-button"
+              :disabled="isSubmitting"
+              @click="handleResend"
+            >
+              <span class="close-text">
+                {{ isSubmitting ? 'RESENDING...' : 'RESEND MY E-PASS' }}
+              </span>
+            </button>
+
+            <!-- Smaller copy under the action button: Register a new Guest -->
+            <div class="secondary-action-container">
+              <button
+                type="button"
+                id="already-registered-new-guest-btn"
+                class="secondary-action-btn"
+                @click="handleRegisterNew"
+              >
+                Register a new Guest
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
     </Transition>
@@ -53,11 +102,16 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { apiResendPass } from '../api/client'
 
 const props = defineProps({
   isOpen: {
     type: Boolean,
     default: false
+  },
+  phone: {
+    type: String,
+    default: ''
   },
   message: {
     type: String,
@@ -65,16 +119,62 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'register-new'])
 
 const translateY = ref(0)
+const isSubmitting = ref(false)
+const isSuccess = ref(false)
+const errorMessage = ref('')
 let startY = 0
 let currentY = 0
 let isDragging = false
 
+watch(() => props.isOpen, (open) => {
+  if (open) {
+    document.body.style.overflow = 'hidden'
+    translateY.value = 0
+    isSuccess.value = false
+    errorMessage.value = ''
+  } else {
+    document.body.style.overflow = ''
+    translateY.value = 0
+  }
+})
+
 const handleClose = () => {
+  if (isSubmitting.value) return
   translateY.value = 0
+  isSuccess.value = false
   emit('close')
+}
+
+const handleRegisterNew = () => {
+  translateY.value = 0
+  isSuccess.value = false
+  emit('register-new')
+  emit('close')
+}
+
+const handleResend = async () => {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  errorMessage.value = ''
+
+  try {
+    const rawPhone = String(props.phone || '').replace(/\D/g, '')
+    const res = await apiResendPass(rawPhone || props.phone)
+
+    if (res && res.success) {
+      isSuccess.value = true
+    } else {
+      errorMessage.value = res?.error || 'Failed to resend pass. Please try again.'
+    }
+  } catch (err) {
+    console.error('[Resend Pass Exception]', err)
+    errorMessage.value = err.message || 'Network error resending pass.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 // Touch swipe-to-dismiss gesture handling
@@ -102,21 +202,11 @@ const onTouchEnd = () => {
   }
 }
 
-// Keydown Escape handler
 const onKeyDown = (e) => {
   if (e.key === 'Escape' && props.isOpen) {
     handleClose()
   }
 }
-
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    document.body.style.overflow = 'hidden'
-  } else {
-    document.body.style.overflow = ''
-    translateY.value = 0
-  }
-})
 
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
@@ -158,7 +248,7 @@ onUnmounted(() => {
 
 .sheet-drag-handle-container {
   width: 100%;
-  height: 24px;
+  padding: 12px 0 6px 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -169,46 +259,80 @@ onUnmounted(() => {
 .sheet-drag-handle {
   width: 36px;
   height: 4px;
-  background-color: #d1d1d1;
-  border-radius: 2px;
+  background-color: rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+}
+
+.modal-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 .modal-body {
-  padding: 8px 24px 24px 24px;
+  padding: 24px 32px 32px 32px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.success-body {
+  padding: 32px 32px 40px 32px;
 }
 
 .modal-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 500;
-  line-height: 24px;
   letter-spacing: -0.01em;
   color: #000000;
   text-transform: uppercase;
   margin: 0;
+  line-height: normal;
+  word-break: break-word;
+}
+
+.success-title {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
 }
 
 .modal-description {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 20px;
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 24px;
   color: #000000;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
-.modal-subdescription {
+/* Fail-safe Error Alert Box */
+.error-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #d32f2f;
+  background-color: #ffebee;
+  padding: 10px 16px;
+  border-radius: 4px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 13px;
-  font-weight: 400;
-  line-height: 19px;
-  color: #555555;
-  margin: 0;
+  line-height: 18px;
+  box-sizing: border-box;
 }
 
+.error-icon {
+  flex-shrink: 0;
+}
+
+.error-text {
+  flex: 1;
+}
+
+/* Primary Action Button (Matches WhyWeNeedThisModal) */
 .modal-close-button {
   width: 100%;
   height: 64px;
@@ -225,12 +349,17 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
-.modal-close-button:hover {
+.modal-close-button:hover:not(:disabled) {
   opacity: 0.85;
 }
 
-.modal-close-button:active {
+.modal-close-button:active:not(:disabled) {
   opacity: 0.7;
+}
+
+.modal-close-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .close-text {
@@ -242,20 +371,54 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* Animations */
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity 0.25s ease;
+/* Secondary copy under the action button */
+.secondary-action-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 14px 0 16px 0;
+  background-color: #f2f2f2;
 }
 
-.modal-fade-enter-active .modal-sheet,
-.modal-fade-leave-active .modal-sheet {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+.secondary-action-btn {
+  background: transparent;
+  border: none;
+  color: #666666;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 12px;
+  outline: none;
+  transition: color 0.15s ease;
+}
+
+.secondary-action-btn:hover {
+  color: #000000;
+}
+
+/* Animations */
+.modal-fade-enter-active {
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-fade-leave-active {
+  transition: opacity 0.25s ease-in;
 }
 
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+
+.modal-fade-enter-active .modal-sheet {
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-fade-leave-active .modal-sheet {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 1, 1);
 }
 
 .modal-fade-enter-from .modal-sheet,

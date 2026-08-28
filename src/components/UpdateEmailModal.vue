@@ -183,14 +183,15 @@ const handleSubmit = async () => {
 
   try {
     const rawPhone = String(props.phone || '').replace(/\D/g, '')
-    const res = await apiUpdateGuestEmail(rawPhone, emailVal.value.trim())
+    const res = await apiUpdateGuestEmail(rawPhone, emailVal.value.trim(), props.currentEmail)
 
-    if (res.success) {
+    if (res && res.success) {
       isSuccess.value = true
     } else {
-      errorMessage.value = res.error || 'Failed to update email. Please try again.'
+      errorMessage.value = res?.error || 'Failed to update email. Please try again.'
     }
   } catch (err) {
+    console.error('[Update Email Exception]', err)
     errorMessage.value = err.message || 'Network error updating email.'
   } finally {
     isSubmitting.value = false
