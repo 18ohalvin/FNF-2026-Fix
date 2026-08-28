@@ -962,10 +962,12 @@ onUnmounted(() => {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  background: #f5f5f5;
 }
 
 .guest-table-wrapper {
-  min-width: 1060px;
+  min-width: 1220px;
+  width: 100%;
   background: #f5f5f5;
   display: flex;
   flex-direction: column;
@@ -973,15 +975,16 @@ onUnmounted(() => {
 
 .table-header-row {
   background-color: #e3e3e3;
-  border: 1px solid #e3e3e3;
+  border-bottom: 1px solid #dcdcdc;
   display: flex;
   align-items: center;
   height: 48px;
   box-sizing: border-box;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: #000000;
+  letter-spacing: 0.03em;
 }
 
 .table-body-row {
@@ -989,7 +992,7 @@ onUnmounted(() => {
   align-items: center;
   background-color: #f5f5f5;
   border-bottom: 1px solid #ebebeb;
-  min-height: 54px;
+  min-height: 56px;
   box-sizing: border-box;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 12px;
@@ -1013,9 +1016,10 @@ onUnmounted(() => {
   color: #666666;
 }
 
-/* Column Dimensions & Styling matching Figma spec */
+/* Column Dimensions & Styling (Prevents text/button overlapping) */
 .col-select {
   width: 48px;
+  min-width: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1053,46 +1057,61 @@ onUnmounted(() => {
 }
 
 .col-type {
-  width: 88px;
-  padding: 12px 16px;
+  width: 90px;
+  min-width: 90px;
+  padding: 12px 14px;
   box-sizing: border-box;
   flex-shrink: 0;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .col-name {
-  flex: 1;
+  flex: 1.2;
   min-width: 180px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   box-sizing: border-box;
-  font-weight: 400;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+.guest-name-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .col-access {
-  width: 145px;
+  width: 120px;
+  min-width: 120px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 12px 16px;
+  padding: 12px 14px;
   box-sizing: border-box;
   flex-shrink: 0;
   font-weight: 400;
+  white-space: nowrap;
 }
 
 .col-ticket {
-  width: 108px;
+  width: 120px;
+  min-width: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 16px;
+  padding: 12px 14px;
   box-sizing: border-box;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ticket-days-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .day-num {
@@ -1106,33 +1125,56 @@ onUnmounted(() => {
 }
 
 .col-contact {
-  width: 173px;
-  padding: 12px 16px;
+  width: 220px;
+  min-width: 220px;
+  padding: 12px 14px;
   box-sizing: border-box;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .contact-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   font-size: 12px;
   line-height: 1.2;
+  overflow: hidden;
+}
+
+.contact-phone {
+  display: block;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-email {
+  display: block;
+  font-size: 11px;
+  color: #666666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .col-time {
-  width: 130px;
-  padding: 12px 16px;
+  width: 120px;
+  min-width: 120px;
+  padding: 12px 14px;
   box-sizing: border-box;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .col-action {
-  width: 255px;
+  width: 290px;
+  min-width: 290px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   box-sizing: border-box;
   flex-shrink: 0;
 }
