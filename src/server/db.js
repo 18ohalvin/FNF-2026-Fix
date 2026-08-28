@@ -846,12 +846,20 @@ class DatabaseAdapter {
     }
 
     const capacity = await this.getMaxCapacity()
+    const dayMap = {
+      '1': 'DAY 1 - WEDNESDAY, 02 SEPTEMBER 2026',
+      '2': 'DAY 2 - THURSDAY, 03 SEPTEMBER 2026',
+      '3': 'DAY 3 - FRIDAY, 04 SEPTEMBER 2026',
+      '4': 'DAY 4 - SATURDAY, 05 SEPTEMBER 2026',
+      '5': 'DAY 5 - SUNDAY, 06 SEPTEMBER 2026'
+    }
+    const fullDayText = dayMap[String(dayNum)] || `DAY ${dayNum} - SEPTEMBER 2026`
 
     return {
       occupancy: {
         current: currentOccupancy,
         capacity,
-        eventDayText: `DAY ${dayNum} - 2026`
+        eventDayText: fullDayText
       },
       summary: {
         totalCheckedIn,
