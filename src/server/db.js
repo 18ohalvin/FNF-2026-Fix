@@ -13,11 +13,27 @@ export function normalizePhoneNumber(phone) {
   return digits
 }
 
-// Helper: Normalize event day ID (e.g. 'Day 1' -> '1', 'day-2' -> '2')
+// Helper: Normalize event day ID (e.g. '2026-09-02' -> '1', 'Day 2' -> '2', 'day-3' -> '3')
 export function normalizeDayId(str) {
   if (!str) return '1'
-  const match = String(str).match(/\d+/)
-  return match ? match[0] : '1'
+  const s = String(str).trim().toLowerCase()
+  
+  // 1. Match ISO event dates & calendar labels (02 to 06 September 2026)
+  if (s.includes('2026-09-02') || s.includes('02 sep') || s.includes('2 sep')) return '1'
+  if (s.includes('2026-09-03') || s.includes('03 sep') || s.includes('3 sep')) return '2'
+  if (s.includes('2026-09-04') || s.includes('04 sep') || s.includes('4 sep')) return '3'
+  if (s.includes('2026-09-05') || s.includes('05 sep') || s.includes('5 sep')) return '4'
+  if (s.includes('2026-09-06') || s.includes('06 sep') || s.includes('6 sep')) return '5'
+
+  // 2. Match explicit "day-X" or "day X" patterns
+  const dayMatch = s.match(/day[_\-\s]*(\d+)/i)
+  if (dayMatch && dayMatch[1]) return dayMatch[1]
+
+  // 3. Match single digit '1' through '5'
+  if (/^[1-5]$/.test(s)) return s
+
+  // 4. Default fallback
+  return '1'
 }
 
 // Determine active database driver
@@ -807,42 +823,73 @@ class DatabaseAdapter {
     const isMysql = this.driverType === 'mysql'
 
     const dayNum = dayOrDate && !dayOrDate.toLowerCase().includes('all') ? normalizeDayId(dayOrDate) : '1'
+    const dayTag = `day-${dayNum}`
+
+    const timeSlots = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
+    const totalCheckedInSlots = new Array(12).fill(0)
+    const vipCheckedInSlots = new Array(12).fill(0)
+    const failedScanSlots = new Array(12).fill(0)
+
+    let scansList = []
 
     if (isPg) {
-      const inRes = await this.pgPool.query("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED'")
-      const vipRes = await this.pgPool.query("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')")
-      const failRes = await this.pgPool.query("SELECT COUNT(*) as count FROM scans WHERE status = 'INVALID' OR status = 'ALREADY_INSIDE'")
-      const resvRes = await this.pgPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE $1", [`%day-${dayNum}%`])
+      const inRes = await this.pgPool.query("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = $1 OR event_day LIKE $2)", [dayTag, `%${dayTag}%`])
+      const vipRes = await this.pgPool.query("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (s.event_day = $1 OR s.event_day LIKE $2) AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')", [dayTag, `%${dayTag}%`])
+      const failRes = await this.pgPool.query("SELECT COUNT(*) as count FROM scans WHERE (status = 'INVALID' OR status = 'ALREADY_INSIDE' OR status = 'WRONG_DAY') AND (event_day = $1 OR event_day LIKE $2)", [dayTag, `%${dayTag}%`])
+      const resvRes = await this.pgPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE $1", [`%${dayTag}%`])
+      const scansRes = await this.pgPool.query("SELECT s.*, g.role as guest_role FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.event_day = $1 OR s.event_day LIKE $2", [dayTag, `%${dayTag}%`])
 
       totalCheckedIn = parseInt(inRes.rows[0]?.count || 0, 10)
       vipsCheckedIn = parseInt(vipRes.rows[0]?.count || 0, 10)
       failedScans = parseInt(failRes.rows[0]?.count || 0, 10)
       totalReservations = parseInt(resvRes.rows[0]?.count || 0, 10)
+      scansList = scansRes.rows || []
     } else if (isMysql) {
-      const [inRows] = await this.mysqlPool.query("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED'")
-      const [vipRows] = await this.mysqlPool.query("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')")
-      const [failRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM scans WHERE status = 'INVALID' OR status = 'ALREADY_INSIDE'")
-      const [resvRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ?", [`%day-${dayNum}%`])
+      const [inRows] = await this.mysqlPool.query("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)", [dayTag, `%${dayTag}%`])
+      const [vipRows] = await this.mysqlPool.query("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (s.event_day = ? OR s.event_day LIKE ?) AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')", [dayTag, `%${dayTag}%`])
+      const [failRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM scans WHERE (status = 'INVALID' OR status = 'ALREADY_INSIDE' OR status = 'WRONG_DAY') AND (event_day = ? OR event_day LIKE ?)", [dayTag, `%${dayTag}%`])
+      const [resvRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ?", [`%${dayTag}%`])
+      const [scansRows] = await this.mysqlPool.query("SELECT s.*, g.role as guest_role FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.event_day = ? OR s.event_day LIKE ?", [dayTag, `%${dayTag}%`])
 
       totalCheckedIn = parseInt(inRows[0]?.count || 0, 10)
       vipsCheckedIn = parseInt(vipRows[0]?.count || 0, 10)
       failedScans = parseInt(failRows[0]?.count || 0, 10)
       totalReservations = parseInt(resvRows[0]?.count || 0, 10)
+      scansList = scansRows || []
     } else {
-      totalCheckedIn = this.sqliteDb.prepare("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED'").get().count
-      vipsCheckedIn = this.sqliteDb.prepare("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')").get().count
-      failedScans = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM scans WHERE status = 'INVALID' OR status = 'ALREADY_INSIDE'").get().count
-      totalReservations = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ?").get(`%day-${dayNum}%`).count
+      totalCheckedIn = this.sqliteDb.prepare("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)").get(dayTag, `%${dayTag}%`).count
+      vipsCheckedIn = this.sqliteDb.prepare("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (s.event_day = ? OR s.event_day LIKE ?) AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')").get(dayTag, `%${dayTag}%`).count
+      failedScans = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM scans WHERE (status = 'INVALID' OR status = 'ALREADY_INSIDE' OR status = 'WRONG_DAY') AND (event_day = ? OR event_day LIKE ?)").get(dayTag, `%${dayTag}%`).count
+      totalReservations = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ?").get(`%${dayTag}%`).count
+      scansList = this.sqliteDb.prepare("SELECT s.*, g.role as guest_role FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.event_day = ? OR s.event_day LIKE ?").all(dayTag, `%${dayTag}%`)
     }
 
+    // Populate hourly buckets from real scan timestamps
+    scansList.forEach(s => {
+      const d = new Date(s.scanned_at || Date.now())
+      const hour = isNaN(d.getHours()) ? 12 : d.getHours()
+      const slotIdx = Math.min(11, Math.max(0, Math.floor(hour / 2)))
+
+      if (s.action === 'check-in' && s.status === 'GRANTED') {
+        totalCheckedInSlots[slotIdx]++
+        if ((s.guest_role && s.guest_role.includes('VIP')) || (s.message && s.message.includes('VIP'))) {
+          vipCheckedInSlots[slotIdx]++
+        }
+      } else if (s.status === 'INVALID' || s.status === 'ALREADY_INSIDE' || s.status === 'WRONG_DAY') {
+        failedScanSlots[slotIdx]++
+      }
+    })
+
     const upcomingArrivals = Math.max(0, totalReservations - totalCheckedIn)
-    const timeSlots = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
+
+    // Upcoming arrivals projected throughout peak event hours (10:00 - 20:00)
+    const upcomingSlots = [0, 0, 0, 0, 0, Math.ceil(upcomingArrivals * 0.25), Math.ceil(upcomingArrivals * 0.35), Math.ceil(upcomingArrivals * 0.25), Math.ceil(upcomingArrivals * 0.15), 0, 0, 0]
 
     const series = {
-      totalCheckedIn: timeSlots.map((slot, idx) => ({ slot, count: idx === 6 ? totalCheckedIn : 0 })),
-      upcomingArrivals: timeSlots.map((slot, idx) => ({ slot, count: idx === 6 ? upcomingArrivals : 0 })),
-      vipsCheckedIn: timeSlots.map((slot, idx) => ({ slot, count: idx === 6 ? vipsCheckedIn : 0 })),
-      failedScans: timeSlots.map((slot, idx) => ({ slot, count: idx === 6 ? failedScans : 0 }))
+      totalCheckedIn: timeSlots.map((slot, idx) => ({ slot, count: totalCheckedInSlots[idx] })),
+      upcomingArrivals: timeSlots.map((slot, idx) => ({ slot, count: upcomingSlots[idx] })),
+      vipsCheckedIn: timeSlots.map((slot, idx) => ({ slot, count: vipCheckedInSlots[idx] })),
+      failedScans: timeSlots.map((slot, idx) => ({ slot, count: failedScanSlots[idx] }))
     }
 
     const capacity = await this.getMaxCapacity()
