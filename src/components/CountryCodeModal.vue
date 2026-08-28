@@ -192,7 +192,6 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   will-change: transform;
-  transition: transform 0.2s ease-out;
   max-height: 85vh;
 }
 

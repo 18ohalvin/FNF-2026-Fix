@@ -265,7 +265,6 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   will-change: transform;
-  transition: transform 0.2s ease-out;
 }
 
 .sheet-drag-handle-container {
@@ -450,6 +449,11 @@ onUnmounted(() => {
 }
 
 .modal-fade-leave-active .modal-sheet {
-  transition: transform 0.25s ease-in;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.modal-fade-enter-from .modal-sheet,
+.modal-fade-leave-to .modal-sheet {
+  transform: translateY(100%);
 }
 </style>
