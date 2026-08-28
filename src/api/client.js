@@ -18,16 +18,17 @@ function clearStaffSession() {
  * Staff login: verified server-side, returns a bearer session token
  */
 export async function apiStaffLogin(storeId, pin) {
-  const res = await fetch(`${API_BASE}/api/staff/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ storeId, pin })
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok || !data.success) {
-    return { success: false, error: data?.error || 'Invalid Store ID or PIN. Please check your credentials.' }
+  try {
+    const data = await fetchWithApiFallback('/api/staff/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId, pin })
+    })
+    return data || { success: false, error: 'Invalid response from server' }
+  } catch (err) {
+    console.error('[API Client] Staff login error:', err)
+    return { success: false, error: err.data?.error || err.message || 'Invalid Store ID or PIN. Please check your credentials.' }
   }
-  return data
 }
 
 export async function apiStaffLogout() {

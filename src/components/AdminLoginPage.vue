@@ -117,20 +117,26 @@ const handleSignIn = async () => {
   const trimmedId = storeId.value.trim().toUpperCase()
   const trimmedPin = pin.value.trim()
 
-  const result = await apiStaffLogin(trimmedId, trimmedPin)
+  try {
+    const result = await apiStaffLogin(trimmedId, trimmedPin)
 
-  if (result.success) {
-    // Save authenticated session (token verified server-side)
-    localStorage.setItem('staff_auth', 'true')
-    sessionStorage.setItem('staff_auth', 'true')
-    localStorage.setItem('staff_token', result.token)
-    sessionStorage.setItem('staff_token', result.token)
-    localStorage.setItem('staff_store_id', trimmedId)
-    emit('login-success')
-  } else {
-    errorMessage.value = result.error || 'Invalid Store ID or PIN. Please check your credentials.'
+    if (result && result.success) {
+      // Save authenticated session (token verified server-side)
+      localStorage.setItem('staff_auth', 'true')
+      sessionStorage.setItem('staff_auth', 'true')
+      localStorage.setItem('staff_token', result.token)
+      sessionStorage.setItem('staff_token', result.token)
+      localStorage.setItem('staff_store_id', trimmedId)
+      emit('login-success')
+    } else {
+      errorMessage.value = result?.error || 'Invalid Store ID or PIN. Please check your credentials.'
+    }
+  } catch (err) {
+    console.error('[Admin Login Error]', err)
+    errorMessage.value = err.message || 'Connection error. Please try again.'
+  } finally {
+    isLoading.value = false
   }
-  isLoading.value = false
 }
 
 const handleContactSupport = () => {
