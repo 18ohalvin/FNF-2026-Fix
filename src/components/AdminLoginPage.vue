@@ -82,7 +82,7 @@
               <div class="support-details">
                 <div class="support-row">
                   <span class="support-label">Support Email:</span>
-                  <span class="support-val">support@707.co.id</span>
+                  <span class="support-val">the707.co@sosco.id</span>
                 </div>
                 <div class="support-row">
                   <span class="support-label">Staff Hotline:</span>
