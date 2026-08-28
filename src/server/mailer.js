@@ -212,11 +212,12 @@ class MailerService {
   /**
    * Generate clean brutalist HTML email template matching 707 design
    */
-  async buildPassEmailHtml({ guestName, accessId, role, selectedDates, bannerDataUrl }) {
+  async buildPassEmailHtml({ guestName, accessId, role, selectedDates, bannerDataUrl, logoDataUrl }) {
     const isVip = (role || '').toUpperCase().includes('VIP')
     const badgeBg = isVip ? '#000000' : '#333333'
     const validDatesHtml = this.formatDates(selectedDates)
     const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
+    const logoSrc = logoDataUrl || getLogoDataUrl(false)
 
     return `
 <!DOCTYPE html>
@@ -229,7 +230,8 @@ class MailerService {
     body { margin: 0; padding: 0; background-color: #f2f2f2; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #000000; -webkit-font-smoothing: antialiased; }
     table { border-collapse: collapse; }
     .card { background-color: #ffffff; max-width: 480px; margin: 24px auto; padding: 32px 24px; border: 1px solid #e0e0e0; }
-    .header-logo { font-size: 28px; font-weight: 900; letter-spacing: 0.05em; color: #000000; margin-bottom: 24px; }
+    .header-logo-container { margin-bottom: 24px; }
+    .header-logo-img { height: 24px; width: auto; max-height: 24px; display: block; border: 0; outline: none; text-decoration: none; }
     .badge { display: inline-block; background-color: ${badgeBg}; color: #ffffff; font-size: 11px; font-weight: 600; padding: 4px 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
     .title { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 8px 0; color: #000000; }
     .subtitle { font-size: 14px; color: #666666; margin: 0 0 24px 0; line-height: 1.5; }
@@ -248,7 +250,9 @@ class MailerService {
 <body>
   <div style="padding: 16px;">
     <div class="card">
-      <div class="header-logo">707</div>
+      <div class="header-logo-container">
+        <img src="${logoSrc}" alt="707 Logo" class="header-logo-img" />
+      </div>
       <div><span class="badge">${isVip ? 'VIP GUEST' : 'PUBLIC ACCESS'}</span></div>
       <h1 class="title">SUCCESS. YOUR PASS HAS BEEN ISSUED.</h1>
       <p class="subtitle">
