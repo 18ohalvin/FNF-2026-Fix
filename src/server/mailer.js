@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer'
 import { jsPDF } from 'jspdf'
 import fs from 'fs'
 import path from 'path'
+import { getLogoDataUrl, getAdBannerDataUrl } from './assets.js'
 
 dotenv.config()
 
@@ -94,12 +95,10 @@ class MailerService {
     }
     doc.rect(0, 0, width, height, 'F')
 
-    // 2. Logo
+    // 2. Logo (Infallible Data URL)
     try {
-      const logoFile = path.resolve(process.cwd(), 'src/assets/logo-707.png')
-      if (fs.existsSync(logoFile)) {
-        const logoBuf = fs.readFileSync(logoFile)
-        const logoBase64 = 'data:image/png;base64,' + logoBuf.toString('base64')
+      const logoBase64 = getLogoDataUrl(isVip)
+      if (logoBase64) {
         doc.addImage(logoBase64, 'PNG', 24, 15.5, 53, 17)
       }
     } catch (e) {
@@ -186,10 +185,8 @@ class MailerService {
     // 6. Promotional Banner with Clickable Hyperlink
     const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
     try {
-      const bannerFile = path.resolve(process.cwd(), 'src/assets/ad-banner.png')
-      if (fs.existsSync(bannerFile)) {
-        const bannerBuf = fs.readFileSync(bannerFile)
-        const bannerBase64 = 'data:image/png;base64,' + bannerBuf.toString('base64')
+      const bannerBase64 = getAdBannerDataUrl()
+      if (bannerBase64) {
         doc.addImage(bannerBase64, 'PNG', 24, 510, 354, 177)
         // Clickable URL Annotation in the PDF
         doc.link(24, 510, 354, 177, { url: promoLink })
@@ -317,17 +314,8 @@ class MailerService {
     const isVip = (role || '').toUpperCase().includes('VIP')
     const pdfFilename = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`
 
-    // 1. Load promo banner for email HTML
-    let bannerDataUrl = ''
-    try {
-      const bannerFile = path.resolve(process.cwd(), 'src/assets/ad-banner.png')
-      if (fs.existsSync(bannerFile)) {
-        const bannerBuf = fs.readFileSync(bannerFile)
-        bannerDataUrl = 'data:image/png;base64,' + bannerBuf.toString('base64')
-      }
-    } catch (e) {
-      console.warn('[Mailer]: Could not load banner for email embed:', e.message)
-    }
+    // 1. Load promo banner for email HTML (Infallible Data URL)
+    const bannerDataUrl = getAdBannerDataUrl()
 
     // 2. Generate PDF Pass Buffer
     let pdfBuffer = null
