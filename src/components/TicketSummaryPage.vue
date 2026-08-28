@@ -54,7 +54,7 @@
         <div class="info-block email-block">
           <span class="info-label">EMAIL</span>
           <span class="info-value email-value">
-            {{ userDetails.email || 'alvin@sosco.id' }}
+            {{ displayedEmail }}
           </span>
         </div>
 
@@ -79,21 +79,29 @@
             <img src="../assets/icon-info.svg" alt="Information" class="info-icon" />
           </div>
           <div class="notice-text-content">
-            <p class="notice-heading">SAVE YOUR E-PASS</p>
+            <p class="notice-heading">DIDN'T RECEIVE THE EMAIL?</p>
             <p class="notice-body">
-              Tap the button below to download and save your E-Pass PDF to your device. Present it at the entrance checkpoint.
+              Check your spam folder or <button type="button" id="open-update-email-btn" class="update-email-link" @click="isUpdateEmailOpen = true">click here</button> to update your email address.
             </p>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- Sticky Bottom CTA Button: DOWNLOAD E-PASS -->
+    <!-- Sticky Bottom CTA Button: DONE -->
     <CtaButton
       :active="true"
-      :loading="isDownloading"
-      :label="hasDownloaded ? 'DOWNLOAD AGAIN' : 'DOWNLOAD E-PASS'"
-      @click="handleDownloadEPassPdf"
+      label="DONE"
+      @click="emit('home')"
+    />
+
+    <!-- Update Guest Email Modal with Success State & Fail-Safe Checks -->
+    <UpdateEmailModal
+      :is-open="isUpdateEmailOpen"
+      :phone="userDetails?.phone"
+      :current-email="displayedEmail"
+      @close="isUpdateEmailOpen = false"
+      @updated="handleEmailUpdated"
     />
   </div>
 </template>
@@ -103,6 +111,7 @@ import { ref, computed } from 'vue'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import CtaButton from './CtaButton.vue'
+import UpdateEmailModal from './UpdateEmailModal.vue'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
 
@@ -132,6 +141,16 @@ const emit = defineEmits(['back', 'home'])
 
 const isDownloading = ref(false)
 const hasDownloaded = ref(false)
+const isUpdateEmailOpen = ref(false)
+const overrideEmail = ref('')
+
+const displayedEmail = computed(() => {
+  return overrideEmail.value || props.userDetails?.email || 'alvin@sosco.id'
+})
+
+const handleEmailUpdated = (newEmail) => {
+  overrideEmail.value = newEmail
+}
 
 // Resolve selected event date objects for display
 const resolvedSelectedDates = computed(() => {
@@ -649,5 +668,24 @@ const handleDownloadEPassPdf = async () => {
   color: #000000;
   line-height: 20px;
   margin: 0;
+}
+
+.update-email-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  color: #000000;
+  text-decoration: underline;
+  cursor: pointer;
+  display: inline;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.update-email-link:hover {
+  opacity: 0.75;
 }
 </style>

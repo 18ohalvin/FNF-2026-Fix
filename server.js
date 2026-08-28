@@ -283,32 +283,50 @@ app.post('/api/guests/update-email', async (req, res) => {
   try {
     const { phone, email } = req.body || {}
     if (!phone || !email) {
-      return res.status(400).json({ error: 'Phone number and new email address are required' })
+      return res.json({ success: false, error: 'Phone number and new email address are required' })
     }
 
+    const trimmedEmail = String(email).trim().toLowerCase()
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(String(email).trim())) {
-      return res.status(400).json({ error: 'Please provide a valid email address' })
+    if (!emailRegex.test(trimmedEmail)) {
+      return res.json({ success: false, error: 'Please provide a valid email address' })
     }
 
-    const guest = await db.getGuestByPhone(phone)
+    const rawDigits = normalizePhoneNumber(phone)
+    const guest = await db.getGuestByPhone(rawDigits) || await db.getGuestByPhone(phone)
     if (!guest) {
-      return res.status(404).json({ error: 'Guest record not found' })
+      return res.json({ success: false, error: 'Guest record not found' })
     }
 
-    // Update guest email
+    // Verify email uniqueness against other registered guests
+    const existingEmailGuest = await db.getGuestByEmail(trimmedEmail)
+    if (existingEmailGuest) {
+      const existingRaw = normalizePhoneNumber(existingEmailGuest.phone)
+      const currentRaw = normalizePhoneNumber(guest.phone)
+      if (existingRaw !== currentRaw) {
+        const existingRes = await db.getReservationByPhone(existingEmailGuest.phone)
+        if (existingRes || existingEmailGuest.is_registered === 1) {
+          return res.json({
+            success: false,
+            error: 'This email address is already registered to another guest. Each guest is eligible for 1 registration pass only.'
+          })
+        }
+      }
+    }
+
+    // Update guest email in SQLite DB
     await db.upsertGuest({
       phone: guest.phone,
       salutation: guest.salutation,
       firstName: guest.first_name,
       lastName: guest.last_name,
-      email: String(email).trim(),
+      email: trimmedEmail,
       instagram: guest.instagram,
       role: guest.role
     })
 
-    const updatedGuest = await db.getGuestByPhone(phone)
-    const reservation = await db.getReservationByPhone(phone)
+    const updatedGuest = await db.getGuestByPhone(guest.phone)
+    const reservation = await db.getReservationByPhone(guest.phone)
 
     // Re-dispatch E-Pass email to the updated email address
     try {
@@ -331,7 +349,7 @@ app.post('/api/guests/update-email', async (req, res) => {
     })
   } catch (err) {
     console.error('[API Update Email Error]', err)
-    res.status(500).json({ error: 'Internal server error updating email' })
+    res.json({ success: false, error: 'Internal server error updating email' })
   }
 })
 
