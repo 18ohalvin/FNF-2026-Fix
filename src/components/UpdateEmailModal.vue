@@ -392,10 +392,10 @@ onUnmounted(() => {
   flex: 1;
 }
 
-/* Bottom Full-width Action Buttons (Node 494:82 & 494:289) */
+/* Bottom Full-width Action Buttons (Matches WhyWeNeedThisModal) */
 .modal-action-button {
   width: 100%;
-  height: 48px;
+  height: 64px;
   background-color: #000000;
   color: #ffffff;
   border: none;
@@ -403,17 +403,18 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 24px;
   user-select: none;
   transition: opacity 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
 .modal-action-button:hover:not(:disabled) {
-  opacity: 0.88;
+  opacity: 0.85;
 }
 
 .modal-action-button:active:not(:disabled) {
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .modal-action-button:disabled {
@@ -423,11 +424,11 @@ onUnmounted(() => {
 
 .button-text {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: normal;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  line-height: normal;
+  line-height: 1;
 }
 
 /* Transitions */

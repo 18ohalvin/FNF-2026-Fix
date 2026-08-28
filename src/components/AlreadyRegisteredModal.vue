@@ -211,13 +211,14 @@ onUnmounted(() => {
 
 .modal-close-button {
   width: 100%;
-  height: 48px;
+  height: 64px;
   background-color: #000000;
   color: #ffffff;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 24px;
   cursor: pointer;
   transition: opacity 0.2s ease;
   user-select: none;
@@ -234,10 +235,11 @@ onUnmounted(() => {
 
 .close-text {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  line-height: 1;
 }
 
 /* Animations */
