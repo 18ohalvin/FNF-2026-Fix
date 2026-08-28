@@ -2,6 +2,7 @@ import express from 'express'
 import path from 'path'
 import crypto from 'crypto'
 import cors from 'cors'
+import os from 'os'
 import dotenv from 'dotenv'
 import db, { normalizePhoneNumber, normalizeDayId } from './src/server/db.js'
 import mailer from './src/server/mailer.js'
@@ -781,12 +782,24 @@ process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception Thrown]', err)
 })
 
-// Start Server
+// Start Server on all network interfaces (0.0.0.0)
 app.listen(PORT, '0.0.0.0', () => {
+  const interfaces = os.networkInterfaces()
+  const netIps = []
+  for (const devName of Object.keys(interfaces)) {
+    for (const iface of interfaces[devName]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        netIps.push({ name: devName, address: iface.address })
+      }
+    }
+  }
+
   console.log(`==================================================`)
   console.log(`[Fullstack Server] 🚀 FIX 707 Form is listening on port ${PORT}`)
   console.log(`[Database Adapter]: ${db.driverType.toUpperCase()}`)
   console.log(`[Local Host]: http://localhost:${PORT}`)
-  console.log(`[Network WiFi]: http://10.77.0.84:${PORT}`)
+  netIps.forEach(net => {
+    console.log(`[Network (${net.name})]: http://${net.address}:${PORT}`)
+  })
   console.log(`==================================================`)
 })
