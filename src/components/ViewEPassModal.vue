@@ -132,6 +132,7 @@ import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
+import { LOGO_707_BASE64, LOGO_707_WHITE_BASE64, AD_BANNER_BASE64, SPONSOR_PROMO_URL } from '../utils/clientAssets'
 
 const props = defineProps({
   isOpen: {
@@ -244,11 +245,15 @@ const handleDownloadPdf = async () => {
     const ctx = canvas.getContext('2d')
     ctx.scale(scale, scale)
 
-    const loadImage = (src) => new Promise((resolve, reject) => {
+    const loadImage = (src) => new Promise((resolve) => {
       const img = new Image()
-      img.crossOrigin = 'anonymous'
       img.onload = () => resolve(img)
-      img.onerror = (e) => reject(e)
+      img.onerror = () => {
+        const retryImg = new Image()
+        retryImg.onload = () => resolve(retryImg)
+        retryImg.onerror = () => resolve(null)
+        retryImg.src = src
+      }
       img.src = src
     })
 
@@ -256,19 +261,10 @@ const handleDownloadPdf = async () => {
     ctx.fillStyle = vip ? '#000000' : '#f2f2f2'
     ctx.fillRect(0, 0, width, height)
 
-    // 2. Logo
-    const logoImg = await loadImage(logo707Black)
-    if (vip) {
-      const tempCanvas = document.createElement('canvas')
-      tempCanvas.width = logoImg.width
-      tempCanvas.height = logoImg.height
-      const tempCtx = tempCanvas.getContext('2d')
-      tempCtx.drawImage(logoImg, 0, 0)
-      tempCtx.globalCompositeOperation = 'source-in'
-      tempCtx.fillStyle = '#FFFFFF'
-      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
-      ctx.drawImage(tempCanvas, 24, 15.5, 53, 17)
-    } else {
+    // 2. Logo (Infallible embedded Base64)
+    const logoSrc = vip ? LOGO_707_WHITE_BASE64 : LOGO_707_BASE64
+    const logoImg = await loadImage(logoSrc)
+    if (logoImg) {
       ctx.drawImage(logoImg, 24, 15.5, 53, 17)
     }
 
@@ -308,7 +304,9 @@ const handleDownloadPdf = async () => {
     ctx.stroke()
 
     const qrImg = await loadImage(qrDataUrl.value)
-    ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
+    if (qrImg) {
+      ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
+    }
 
     // 5. Grid Details
     ctx.textAlign = 'left'
@@ -349,9 +347,11 @@ const handleDownloadPdf = async () => {
     }
     ctx.fillText(accessId, 216, 462)
 
-    // 6. Ad Banner
-    const banner = await loadImage(adBannerImg)
-    ctx.drawImage(banner, 24, 510, 354, 177)
+    // 6. Ad Banner (Infallible embedded Base64, Y: 510, X: 24, W: 354, H: 177)
+    const banner = await loadImage(AD_BANNER_BASE64)
+    if (banner) {
+      ctx.drawImage(banner, 24, 510, 354, 177)
+    }
 
     // 7. Terms
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
@@ -370,7 +370,7 @@ const handleDownloadPdf = async () => {
       format: [width, height]
     })
     pdf.addImage(imgData, 'PNG', 0, 0, width, height, '', 'FAST')
-    pdf.link(24, 510, 354, 177, { url: 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale' })
+    pdf.link(24, 510, 354, 177, { url: SPONSOR_PROMO_URL })
 
     pdf.save(`FNF-2026-${vip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`)
   } catch (err) {

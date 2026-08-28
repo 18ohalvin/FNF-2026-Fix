@@ -114,6 +114,7 @@ import CtaButton from './CtaButton.vue'
 import UpdateEmailModal from './UpdateEmailModal.vue'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
+import { LOGO_707_BASE64, LOGO_707_WHITE_BASE64, AD_BANNER_BASE64, SPONSOR_PROMO_URL } from '../utils/clientAssets'
 
 const props = defineProps({
   userDetails: {
@@ -299,12 +300,17 @@ const handleDownloadEPassPdf = async () => {
     const ctx = canvas.getContext('2d')
     ctx.scale(scale, scale)
 
-    // Image loader helper
-    const loadImage = (src) => new Promise((resolve, reject) => {
+    // Image loader helper (supports Base64 data URLs with infallible fallback)
+    const loadImage = (src) => new Promise((resolve) => {
       const img = new Image()
-      img.crossOrigin = 'anonymous'
       img.onload = () => resolve(img)
-      img.onerror = (e) => reject(e)
+      img.onerror = () => {
+        // Fallback retry
+        const retryImg = new Image()
+        retryImg.onload = () => resolve(retryImg)
+        retryImg.onerror = () => resolve(null)
+        retryImg.src = src
+      }
       img.src = src
     })
 
@@ -312,21 +318,10 @@ const handleDownloadEPassPdf = async () => {
     ctx.fillStyle = isVip ? '#000000' : '#f2f2f2'
     ctx.fillRect(0, 0, width, height)
 
-    // 2. Header: 707 Logo (Exactly 48px Header Height, 17px Logo Height matching AppHeader.vue)
-    const logoImg = await loadImage(logo707Black)
-    if (isVip) {
-      // Draw pure white 707 logo on dark background for VIP E-Pass
-      const tempCanvas = document.createElement('canvas')
-      tempCanvas.width = logoImg.width
-      tempCanvas.height = logoImg.height
-      const tempCtx = tempCanvas.getContext('2d')
-      tempCtx.drawImage(logoImg, 0, 0)
-      tempCtx.globalCompositeOperation = 'source-in'
-      tempCtx.fillStyle = '#FFFFFF'
-      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
-      ctx.drawImage(tempCanvas, 24, 15.5, 53, 17)
-    } else {
-      // Draw black 707 logo on light background for Public E-Pass
+    // 2. Header: 707 Logo (Infallible embedded Base64)
+    const logoSrc = isVip ? LOGO_707_WHITE_BASE64 : LOGO_707_BASE64
+    const logoImg = await loadImage(logoSrc)
+    if (logoImg) {
       ctx.drawImage(logoImg, 24, 15.5, 53, 17)
     }
 
@@ -378,7 +373,9 @@ const handleDownloadEPassPdf = async () => {
       color: { dark: '#000000', light: '#f2f2f2' }
     })
     const qrImg = await loadImage(qrDataUrl)
-    ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
+    if (qrImg) {
+      ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
+    }
 
     // 5. Identity & Summary Grid (Y: 344)
     ctx.textAlign = 'left'
@@ -416,9 +413,11 @@ const handleDownloadEPassPdf = async () => {
     }
     ctx.fillText(accessId, 216, 462)
 
-    // 6. Ad Banner Image (Y: 510, X: 24, W: 354, H: 177)
-    const banner = await loadImage(adBannerImg)
-    ctx.drawImage(banner, 24, 510, 354, 177)
+    // 6. Ad Banner Image (Infallible embedded Base64, Y: 510, X: 24, W: 354, H: 177)
+    const banner = await loadImage(AD_BANNER_BASE64)
+    if (banner) {
+      ctx.drawImage(banner, 24, 510, 354, 177)
+    }
 
     // 7. Terms & Conditions (Y: 720, X: 24)
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
@@ -439,8 +438,7 @@ const handleDownloadEPassPdf = async () => {
     pdf.addImage(imgData, 'PNG', 0, 0, width, height, '', 'FAST')
 
     // Clickable Hyperlink Annotation over Sponsor Promo Banner
-    const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
-    pdf.link(24, 510, 354, 177, { url: promoLink })
+    pdf.link(24, 510, 354, 177, { url: SPONSOR_PROMO_URL })
     
     // Save as PDF file
     pdf.save(`FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`)

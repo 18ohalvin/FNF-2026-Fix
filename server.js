@@ -410,6 +410,61 @@ app.post('/api/resend-pass', async (req, res) => {
   }
 })
 
+// 3.5. Direct PDF Pass Generator & Download Endpoint (for Browser & IT Integration)
+app.get(['/api/pass/pdf', '/api/pass/pdf/:accessId'], async (req, res) => {
+  try {
+    const accessId = req.params.accessId || req.query.accessId
+    const phone = req.query.phone
+    let guest = null
+    let reservation = null
+
+    if (phone) {
+      const rawDigits = normalizePhoneNumber(phone)
+      guest = (rawDigits ? await db.getGuestByPhone(rawDigits) : null) || await db.getGuestByPhone(phone)
+      if (guest) {
+        reservation = await db.getReservationByPhone(guest.phone)
+      }
+    }
+
+    if (!guest && accessId) {
+      reservation = await db.getReservationByAccessId(accessId)
+      if (reservation && reservation.guest_phone) {
+        guest = await db.getGuestByPhone(reservation.guest_phone)
+      }
+      if (!guest) {
+        guest = await db.getGuestByPhone(accessId)
+      }
+    }
+
+    if (!guest && !accessId) {
+      return res.status(404).json({ error: 'Guest or Access ID not found' })
+    }
+
+    reservation = guest ? await db.getReservationByPhone(guest.phone) : null
+    const finalAccessId = accessId || guest?.access_id || reservation?.access_id || '707'
+    const role = guest?.role || 'PUBLIC GUEST'
+    const guestName = guest ? `${guest.salutation ? guest.salutation + ' ' : ''}${guest.first_name || ''} ${guest.last_name || ''}`.trim() : 'EVENT GUEST'
+    const selectedDates = reservation?.selected_dates || ['day-1', 'day-2', 'day-3', 'day-4', 'day-5']
+    const isVip = role.toUpperCase().includes('VIP')
+    const filename = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${finalAccessId}.pdf`
+
+    const pdfBuffer = await mailer.generatePassPdfBuffer({
+      guestName,
+      accessId: finalAccessId,
+      role,
+      selectedDates
+    })
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
+    res.setHeader('Content-Length', pdfBuffer.length)
+    res.send(pdfBuffer)
+  } catch (err) {
+    console.error('[API PDF Generator Error]', err)
+    res.status(500).json({ error: 'Failed to generate PDF pass' })
+  }
+})
+
 // 4. Create Reservation Endpoint (Simplified Short Access IDs)
 app.post('/api/reservations', async (req, res) => {
   try {
