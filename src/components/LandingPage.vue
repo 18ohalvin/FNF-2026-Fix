@@ -2,12 +2,22 @@
   <div class="landing-page-wrapper">
     <!-- Main Content Area -->
     <main class="landing-content">
-      <!-- Static Event Banner Poster (Fill Screen) -->
+      <!-- Event Banner Media (Video or Image Fill Screen) -->
       <div class="banner-container">
+        <video
+          v-if="isVideoBanner"
+          :src="bannerSource"
+          autoplay
+          loop
+          muted
+          playsinline
+          class="event-banner-media"
+        ></video>
         <img
+          v-else
           :src="bannerSource"
           alt="The 707 Company - F+F Sale 2026 (2-6 September 2026)"
-          class="event-banner-img"
+          class="event-banner-media"
         />
       </div>
     </main>
@@ -24,8 +34,8 @@
 <script setup>
 import { computed } from 'vue'
 import CtaButton from './CtaButton.vue'
-import publicBanner from '../assets/event-banner.png'
-import vipBanner from '../assets/event-banner-vip.jpg'
+import publicBannerMedia from '../assets/event-banner.mp4'
+import vipBannerMedia from '../assets/event-banner-vip.mp4'
 
 const props = defineProps({
   registrationType: {
@@ -41,7 +51,11 @@ const isVip = computed(() => {
 })
 
 const bannerSource = computed(() => {
-  return isVip.value ? vipBanner : publicBanner
+  return isVip.value ? vipBannerMedia : publicBannerMedia
+})
+
+const isVideoBanner = computed(() => {
+  return typeof bannerSource.value === 'string' && (bannerSource.value.endsWith('.mp4') || bannerSource.value.endsWith('.webm') || bannerSource.value.includes('.mp4'))
 })
 </script>
 
@@ -75,7 +89,7 @@ const bannerSource = computed(() => {
   overflow: hidden;
 }
 
-.event-banner-img {
+.event-banner-media {
   width: 100%;
   height: 100%;
   display: block;
