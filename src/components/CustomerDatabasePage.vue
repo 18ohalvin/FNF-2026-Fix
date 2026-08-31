@@ -58,6 +58,22 @@
           </div>
         </div>
 
+        <!-- Download CSV/Excel Export Button (Left beside Filter Button) -->
+        <button
+          type="button"
+          class="download-export-btn"
+          title="Download Customer Database as CSV / Excel"
+          :disabled="isExporting || guests.length === 0"
+          @click="handleExportData"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="download-icon">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>{{ isExporting ? 'EXPORTING...' : 'DOWNLOAD DATA' }}</span>
+        </button>
+
         <!-- Filter Dropdown Button -->
         <div class="filter-dropdown-container">
           <button
@@ -375,6 +391,7 @@ const selectedEditGuest = ref(null)
 const isViewEPassOpen = ref(false)
 const selectedPassGuest = ref(null)
 const toastMessage = ref('')
+const isExporting = ref(false)
 
 // Multi-Selection State
 const selectedPhones = ref([])
@@ -509,6 +526,119 @@ const formatScanTime = (scannedAt, isCheckedIn) => {
     return `Day 1 - ${formattedHours}:${minutes} ${ampm}`
   } catch (e) {
     return 'Day 1 - 12:11 PM'
+  }
+}
+
+const handleExportData = async () => {
+  if (isExporting.value) return
+  isExporting.value = true
+
+  try {
+    // If specific rows are checked/selected, export those; otherwise export all currently loaded records
+    let exportList = []
+    if (selectedPhones.value.length > 0) {
+      exportList = guests.value.filter(g => selectedPhones.value.includes(g.phone))
+    } else {
+      exportList = guests.value
+    }
+
+    if (!exportList || exportList.length === 0) {
+      showToast('No customer records available to export.')
+      isExporting.value = false
+      return
+    }
+
+    // CSV Column Headers
+    const headers = [
+      'No',
+      'Salutation',
+      'First Name',
+      'Last Name',
+      'Full Name',
+      'Phone Number',
+      'Email',
+      'Instagram',
+      'Access Type / Role',
+      'Access ID',
+      'Registered Days',
+      'Check-in Status',
+      'Last Scanned Time',
+      'Registration Date'
+    ]
+
+    // Escape CSV cell helper (RFC 4180)
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return '""'
+      const str = String(val).replace(/"/g, '""')
+      return `"${str}"`
+    }
+
+    // Format registered days helper
+    const formatRegisteredDays = (selectedDates) => {
+      if (!selectedDates) return 'N/A'
+      try {
+        const arr = typeof selectedDates === 'string' ? JSON.parse(selectedDates) : selectedDates
+        if (Array.isArray(arr) && arr.length > 0) {
+          return arr.map(d => {
+            const s = String(d).toLowerCase().trim()
+            if (s.includes('1')) return 'Day 1 (VIP)'
+            if (s.includes('2')) return 'Day 2'
+            if (s.includes('3')) return 'Day 3'
+            if (s.includes('4')) return 'Day 4'
+            if (s.includes('5')) return 'Day 5'
+            return String(d)
+          }).join(', ')
+        }
+      } catch (e) {}
+      return String(selectedDates)
+    }
+
+    const rows = exportList.map((g, idx) => {
+      const fullName = `${g.salutation || ''} ${g.first_name || ''} ${g.last_name || ''}`.trim() || 'N/A'
+      // Tab prefix ensures Excel treats phone as string without dropping '+' or leading zero
+      const phoneFormatted = g.phone ? `\t${g.phone}` : 'N/A'
+      const checkInStatus = g.is_checked_in ? 'CHECKED IN' : 'NOT CHECKED IN'
+      const days = formatRegisteredDays(g.selected_dates)
+      const scannedTime = g.last_scanned_at ? new Date(g.last_scanned_at).toLocaleString('en-GB') : (g.is_checked_in ? 'Checked In' : 'Not Scanned')
+      const regTime = g.created_at ? new Date(g.created_at).toLocaleString('en-GB') : 'N/A'
+
+      return [
+        idx + 1,
+        escapeCsv(g.salutation || 'Mr.'),
+        escapeCsv(g.first_name || ''),
+        escapeCsv(g.last_name || ''),
+        escapeCsv(fullName),
+        escapeCsv(phoneFormatted),
+        escapeCsv(g.email || 'N/A'),
+        escapeCsv(g.instagram || 'N/A'),
+        escapeCsv(g.role || (g.role?.toUpperCase().includes('VIP') ? 'VIP GUEST' : 'PUBLIC ACCESS')),
+        escapeCsv(g.access_id || 'N/A'),
+        escapeCsv(days),
+        escapeCsv(checkInStatus),
+        escapeCsv(scannedTime),
+        escapeCsv(regTime)
+      ].join(',')
+    })
+
+    // UTF-8 BOM (\uFEFF) for immediate perfect rendering in Microsoft Excel & Apple Numbers
+    const csvContent = '\uFEFF' + [headers.map(h => `"${h}"`).join(','), ...rows].join('\r\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const nowStr = new Date().toISOString().slice(0, 10)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `707-Customer-Database-${nowStr}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    showToast(`Successfully exported ${exportList.length} customer records.`)
+  } catch (err) {
+    console.error('Export Error:', err)
+    showToast('Failed to export data. Please try again.')
+  } finally {
+    isExporting.value = false
   }
 }
 
@@ -765,6 +895,38 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   color: #000000;
+}
+
+.download-export-btn {
+  height: 48px;
+  padding: 0 20px;
+  border: 1px solid #000000;
+  background: transparent;
+  color: #000000;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.32px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.download-export-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.download-export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.download-icon {
+  flex-shrink: 0;
 }
 
 .filter-dropdown-container {
@@ -1303,6 +1465,7 @@ onUnmounted(() => {
   }
 
   .search-box-wrapper,
+  .download-export-btn,
   .filter-by-btn,
   .date-picker-btn {
     width: 100%;
