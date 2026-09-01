@@ -31,7 +31,7 @@
   </template>
 
   <!-- Guest Registration PWA -->
-  <div v-else class="app-wrapper">
+  <div v-else class="app-wrapper" :class="{ 'landing-mode': currentPage === 'landing' }">
     <!-- Persistent Static Global Header with 707 Logo for Registration Flow -->
     <AppHeader @home="handleGoHome" />
 
@@ -123,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue'
 import LandingPage from './components/LandingPage.vue'
 import AppHeader from './components/AppHeader.vue'
 import WhatsappForm from './components/WhatsappForm.vue'
@@ -176,6 +176,23 @@ const checkRegistrationTypeFromUrl = () => {
     selectedEventDates.value = ['day-1']
   }
 }
+
+// Lock scroll strictly when on landing page to ensure single-screen fit without swipe/bounce
+watchEffect(() => {
+  if (typeof document !== 'undefined') {
+    if (currentPage.value === 'landing') {
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+    } else {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }
+})
 
 // Navigation Helper with HTML5 History API
 const navigateTo = (page, replace = false) => {
@@ -499,6 +516,14 @@ const handleDatesSubmit = async (dates) => {
 </script>
 
 <style scoped>
+.app-wrapper.landing-mode {
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
 .app-wrapper.wide-mode {
   max-width: 100% !important;
   width: 100% !important;

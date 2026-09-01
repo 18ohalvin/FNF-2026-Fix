@@ -62,12 +62,15 @@ const isVideoBanner = computed(() => {
 <style scoped>
 .landing-page-wrapper {
   width: 100%;
+  height: 100%;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   background-color: #f2f2f2;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: pan-x pinch-zoom;
 }
 
 .landing-content {
@@ -76,6 +79,8 @@ const isVideoBanner = computed(() => {
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: 100%;
+  position: relative;
   overflow: hidden;
 }
 
@@ -83,17 +88,20 @@ const isVideoBanner = computed(() => {
   flex: 1;
   min-height: 0;
   width: 100%;
+  height: 100%;
   position: relative;
   background-color: #f2f2f2;
-  display: flex;
   overflow: hidden;
 }
 
 .event-banner-media {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
+  object-fit: fill;
   object-position: center center;
   user-select: none;
   -webkit-user-drag: none;

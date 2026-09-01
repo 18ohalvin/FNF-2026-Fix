@@ -28,6 +28,7 @@ const emit = defineEmits(['home'])
   position: relative;
   z-index: 10;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .header-container {

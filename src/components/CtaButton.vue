@@ -49,6 +49,7 @@ const handleClick = () => {
   z-index: 20;
   background-color: var(--bg-primary);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  flex-shrink: 0;
 }
 
 .cta-button {
