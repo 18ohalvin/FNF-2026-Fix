@@ -10,11 +10,28 @@
       >
         <img src="../assets/logo-707.png" alt="707 Logo" class="brand-logo" />
       </button>
+
+      <!-- Sponsor Logo (Jenius by SMBC Indonesia Presents) on Top Right -->
+      <div class="sponsor-logo-container">
+        <img
+          src="../assets/logo-jenius-presents.png"
+          alt="Jenius by SMBC Indonesia Presents"
+          class="sponsor-logo"
+          :class="{ 'invert-logo': !isLanding }"
+        />
+      </div>
     </div>
   </header>
 </template>
 
 <script setup>
+defineProps({
+  isLanding: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const emit = defineEmits(['home'])
 </script>
 
@@ -34,7 +51,7 @@ const emit = defineEmits(['home'])
 .header-container {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   width: 100%;
   height: 100%;
 }
@@ -56,5 +73,22 @@ const emit = defineEmits(['home'])
   width: auto;
   object-fit: contain;
   display: block;
+}
+
+.sponsor-logo-container {
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+
+.sponsor-logo {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.sponsor-logo.invert-logo {
+  filter: invert(1);
 }
 </style>

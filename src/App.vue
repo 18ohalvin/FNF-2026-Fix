@@ -32,8 +32,8 @@
 
   <!-- Guest Registration PWA -->
   <div v-else class="app-wrapper" :class="{ 'landing-mode': currentPage === 'landing' }">
-    <!-- Persistent Static Global Header with 707 Logo for Registration Flow -->
-    <AppHeader @home="handleGoHome" />
+    <!-- Persistent Static Global Header with 707 Logo & Sponsor Logo for Registration Flow -->
+    <AppHeader :is-landing="currentPage === 'landing'" @home="handleGoHome" />
 
     <!-- PAGE 0: Landing Page (Node 241:1383) -->
     <template v-if="currentPage === 'landing'">
