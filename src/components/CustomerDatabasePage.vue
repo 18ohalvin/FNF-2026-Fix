@@ -47,7 +47,7 @@
             v-model="searchQuery"
             type="text"
             class="search-input-field"
-            placeholder="Search by Name, Email, or Access ID"
+            placeholder="Search by Name, Phone, Email, or Access ID"
             @input="handleSearch"
           />
           <div class="search-icon-btn">
@@ -89,6 +89,9 @@
             </div>
             <div class="filter-menu-item" :class="{ active: currentFilter === 'VIP' }" @click="applyFilter('VIP')">
               VIP GUESTS
+            </div>
+            <div class="filter-menu-item" :class="{ active: currentFilter === 'PUBLIC' }" @click="applyFilter('PUBLIC')">
+              PUBLIC GUESTS
             </div>
             <div class="filter-menu-item" :class="{ active: currentFilter === 'CHECKED_IN' }" @click="applyFilter('CHECKED_IN')">
               CHECKED-IN

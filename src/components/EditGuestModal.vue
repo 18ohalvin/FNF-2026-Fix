@@ -146,6 +146,23 @@ const form = reactive({
   selectedDates: []
 })
 
+const parseDatesSafely = (datesInput) => {
+  if (!datesInput) return ['day-1']
+  if (Array.isArray(datesInput)) return datesInput
+  if (typeof datesInput === 'string') {
+    const trimmed = datesInput.trim()
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      } catch (e) {}
+    }
+    const split = trimmed.split(',').map(s => s.trim()).filter(Boolean)
+    if (split.length > 0) return split
+  }
+  return ['day-1']
+}
+
 watch(
   () => props.guest,
   (g) => {
@@ -157,13 +174,7 @@ watch(
       form.role = (g.role || '').toUpperCase().includes('VIP') ? 'VIP GUEST' : 'PUBLIC'
       form.accessId = g.access_id || ''
       form.isCheckedIn = g.is_checked_in ? 1 : 0
-
-      try {
-        const dates = typeof g.selected_dates === 'string' ? JSON.parse(g.selected_dates) : g.selected_dates
-        form.selectedDates = Array.isArray(dates) ? dates : ['day-1']
-      } catch (e) {
-        form.selectedDates = ['day-1']
-      }
+      form.selectedDates = parseDatesSafely(g.selected_dates)
     }
   },
   { immediate: true }

@@ -402,12 +402,17 @@ class DatabaseAdapter {
     }
 
     // If reservation fields updated
-    if (updateData.accessId || updateData.selectedDates) {
+    if (updateData.accessId !== undefined || updateData.selectedDates !== undefined) {
       const resv = await this.getReservationByPhone(targetPhone)
-      const newAccess = updateData.accessId || resv?.access_id || targetPhone
-      const newDates = updateData.selectedDates 
-        ? (typeof updateData.selectedDates === 'string' ? updateData.selectedDates : JSON.stringify(updateData.selectedDates))
-        : (resv?.selected_dates || JSON.stringify(['day-1']))
+      const newAccess = updateData.accessId !== undefined ? (updateData.accessId || targetPhone) : (resv?.access_id || targetPhone)
+      
+      let newDates = resv?.selected_dates
+      if (updateData.selectedDates !== undefined && updateData.selectedDates !== null) {
+        newDates = typeof updateData.selectedDates === 'string' ? updateData.selectedDates : JSON.stringify(updateData.selectedDates)
+      }
+      if (!newDates) {
+        newDates = JSON.stringify(['day-1'])
+      }
       
       await this.createReservation({ phone: targetPhone, accessId: newAccess, selectedDates: newDates })
     }
@@ -465,13 +470,16 @@ class DatabaseAdapter {
 
   async getReservationByAccessId(accessId) {
     await this.connect()
+    const raw = String(accessId).replace(/\D/g, '')
+    const norm = normalizePhoneNumber(accessId)
+
     if (this.driverType === 'postgres') {
       const res = await this.pgPool.query(
         `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role 
          FROM ticket_reservations r 
          LEFT JOIN guests g ON g.phone = r.guest_phone 
-         WHERE r.access_id = $1 OR r.guest_phone = $1 LIMIT 1`,
-        [accessId]
+         WHERE LOWER(r.access_id) = LOWER($1) OR r.guest_phone = $1 OR r.guest_phone = $2 OR r.guest_phone = $3 LIMIT 1`,
+        [accessId, raw, `0${norm}`]
       )
       return res.rows[0] || null
     } else if (this.driverType === 'mysql') {
@@ -479,8 +487,8 @@ class DatabaseAdapter {
         `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role 
          FROM ticket_reservations r 
          LEFT JOIN guests g ON g.phone = r.guest_phone 
-         WHERE r.access_id = ? OR r.guest_phone = ? LIMIT 1`,
-        [accessId, accessId]
+         WHERE LOWER(r.access_id) = LOWER(?) OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? LIMIT 1`,
+        [accessId, accessId, raw, `0${norm}`]
       )
       return rows[0] || null
     } else {
@@ -488,8 +496,8 @@ class DatabaseAdapter {
         `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role 
          FROM ticket_reservations r 
          LEFT JOIN guests g ON g.phone = r.guest_phone 
-         WHERE r.access_id = ? OR r.guest_phone = ? LIMIT 1`
-      ).get(accessId, accessId) || null
+         WHERE LOWER(r.access_id) = LOWER(?) OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? LIMIT 1`
+      ).get(accessId, accessId, raw, `0${norm}`) || null
     }
   }
 
@@ -750,17 +758,22 @@ class DatabaseAdapter {
 
     if (search && search.trim()) {
       const q = `%${search.trim().toLowerCase()}%`
+      const rawDigits = search.replace(/\D/g, '')
+      const phoneQ = rawDigits ? `%${rawDigits}%` : q
+
       if (isPg) {
-        params.push(q, q, q, q, q, q)
-        conditions.push(`(LOWER(g.first_name) LIKE $${params.length - 5} OR LOWER(g.last_name) LIKE $${params.length - 4} OR g.phone LIKE $${params.length - 3} OR LOWER(g.email) LIKE $${params.length - 2} OR LOWER(g.role) LIKE $${params.length - 1} OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE $${params.length})`)
+        params.push(q, q, q, phoneQ, q, q, q)
+        conditions.push(`(LOWER(g.first_name) LIKE $${params.length - 6} OR LOWER(g.last_name) LIKE $${params.length - 5} OR g.phone LIKE $${params.length - 4} OR g.phone LIKE $${params.length - 3} OR LOWER(g.email) LIKE $${params.length - 2} OR LOWER(g.role) LIKE $${params.length - 1} OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE $${params.length})`)
       } else {
-        params.push(q, q, q, q, q, q)
-        conditions.push(`(LOWER(g.first_name) LIKE ? OR LOWER(g.last_name) LIKE ? OR g.phone LIKE ? OR LOWER(g.email) LIKE ? OR LOWER(g.role) LIKE ? OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE ?)`)
+        params.push(q, q, q, phoneQ, q, q, q)
+        conditions.push(`(LOWER(g.first_name) LIKE ? OR LOWER(g.last_name) LIKE ? OR g.phone LIKE ? OR g.phone LIKE ? OR LOWER(g.email) LIKE ? OR LOWER(g.role) LIKE ? OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE ?)`)
       }
     }
 
     if (filter === 'VIP') {
       conditions.push(`g.role LIKE '%VIP%'`)
+    } else if (filter === 'PUBLIC') {
+      conditions.push(`(g.role LIKE '%PUBLIC%' OR (g.role NOT LIKE '%VIP%' AND g.role NOT LIKE '%STAFF%'))`)
     }
 
     if (day && day.trim() && !day.toLowerCase().includes('all')) {
