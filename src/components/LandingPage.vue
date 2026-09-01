@@ -101,7 +101,7 @@ const isVideoBanner = computed(() => {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: fill;
+  object-fit: cover;
   object-position: center center;
   user-select: none;
   -webkit-user-drag: none;
