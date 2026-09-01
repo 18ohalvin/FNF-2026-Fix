@@ -19,6 +19,15 @@
           alt="The 707 Company - F+F Sale 2026 (2-6 September 2026)"
           class="event-banner-media"
         />
+
+        <!-- Sponsor Logo (Jenius by SMBC Indonesia Presents) Top Right Under Header -->
+        <div class="sponsor-overlay-container">
+          <img
+            src="../assets/logo-jenius-presents.png"
+            alt="Jenius by SMBC Indonesia Presents"
+            class="sponsor-overlay-logo"
+          />
+        </div>
       </div>
     </main>
 
@@ -105,5 +114,22 @@ const isVideoBanner = computed(() => {
   object-position: center center;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.sponsor-overlay-container {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.sponsor-overlay-logo {
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 </style>
