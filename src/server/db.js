@@ -500,6 +500,58 @@ class DatabaseAdapter {
       ).get(accessId, accessId, raw, `0${norm}`) || null
     }
   }
+  async autoFixMissingAccessIds() {
+    await this.connect()
+    const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
+    const genCode = () => {
+      let code = ''
+      for (let i = 0; i < 3; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length))
+      }
+      return code
+    }
+
+    let unassignedGuests = []
+    if (this.driverType === 'postgres') {
+      const res = await this.pgPool.query(`
+        SELECT g.* FROM guests g 
+        LEFT JOIN ticket_reservations r ON r.guest_phone = g.phone 
+        WHERE r.access_id IS NULL OR r.access_id = '' OR r.access_id = 'N/A' OR LOWER(r.access_id) LIKE '%null%'
+      `)
+      unassignedGuests = res.rows
+    } else if (this.driverType === 'mysql') {
+      const [rows] = await this.mysqlPool.query(`
+        SELECT g.* FROM guests g 
+        LEFT JOIN ticket_reservations r ON r.guest_phone = g.phone 
+        WHERE r.access_id IS NULL OR r.access_id = '' OR r.access_id = 'N/A' OR LOWER(r.access_id) LIKE '%null%'
+      `)
+      unassignedGuests = rows
+    } else {
+      unassignedGuests = this.sqliteDb.prepare(`
+        SELECT g.* FROM guests g 
+        LEFT JOIN ticket_reservations r ON r.guest_phone = g.phone 
+        WHERE r.access_id IS NULL OR r.access_id = '' OR r.access_id = 'N/A' OR LOWER(r.access_id) LIKE '%null%'
+      `).all()
+    }
+
+    let fixedCount = 0
+    for (const g of unassignedGuests) {
+      if (!g.phone) continue
+      const newAccessId = genCode()
+      const defaultDates = JSON.stringify(['day-1', 'day-2', 'day-3', 'day-4', 'day-5'])
+      await this.createReservation({
+        phone: g.phone,
+        accessId: newAccessId,
+        selectedDates: defaultDates
+      })
+      fixedCount++
+    }
+
+    if (fixedCount > 0) {
+      console.log(`[Auto-Fix Access IDs] Successfully assigned unique codes to ${fixedCount} guest records.`)
+    }
+    return { fixedCount, totalProcessed: unassignedGuests.length }
+  }
 
   async getGuestByPhoneOrName(query) {
     await this.connect()

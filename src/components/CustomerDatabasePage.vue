@@ -74,6 +74,20 @@
           <span>{{ isExporting ? 'EXPORTING...' : 'DOWNLOAD DATA' }}</span>
         </button>
 
+        <!-- Auto-Fix N/A Unique Codes Button -->
+        <button
+          type="button"
+          class="download-export-btn auto-fix-btn"
+          title="Auto-Fix & Assign Unique Codes to any N/A Guest Records"
+          :disabled="isFixingCodes"
+          @click="handleAutoFixCodes"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+          </svg>
+          <span>{{ isFixingCodes ? 'FIXING...' : 'AUTO-FIX CODES' }}</span>
+        </button>
+
         <!-- Filter Dropdown Button -->
         <div class="filter-dropdown-container">
           <button
@@ -368,7 +382,8 @@ import {
   apiFetchCustomerDatabase,
   apiOverrideGuestStatus,
   apiDeleteGuest,
-  apiBulkDeleteGuests
+  apiBulkDeleteGuests,
+  apiAutoFixAccessIds
 } from '../api/client'
 import CalendarModal from './CalendarModal.vue'
 import EditGuestModal from './EditGuestModal.vue'
@@ -395,6 +410,24 @@ const isViewEPassOpen = ref(false)
 const selectedPassGuest = ref(null)
 const toastMessage = ref('')
 const isExporting = ref(false)
+const isFixingCodes = ref(false)
+
+const handleAutoFixCodes = async () => {
+  isFixingCodes.value = true
+  try {
+    const res = await apiAutoFixAccessIds()
+    if (res && res.success) {
+      showToast(`Auto-Fixed: ${res.fixedCount || 0} unique code(s) assigned!`)
+      await loadGuests(false)
+    } else {
+      showToast(res?.error || 'Failed to auto-fix missing codes')
+    }
+  } catch (err) {
+    showToast('Error auto-fixing unique codes')
+  } finally {
+    isFixingCodes.value = false
+  }
+}
 
 // Multi-Selection State
 const selectedPhones = ref([])
@@ -448,7 +481,7 @@ let pollInterval = null
 
 // Event Day State (Defaults to 'All Days' so initial load fetches entire database)
 const isCalendarOpen = ref(false)
-const selectedEventDayText = ref('All Days')
+const selectedEventDayText = ref('ALL DAYS')
 
 const handleOpenEdit = (guest) => {
   selectedEditGuest.value = guest
@@ -461,6 +494,8 @@ const handleDaySelect = (dayTitle) => {
   selectedPhones.value = []
   loadGuests(true)
 }
+
+let isAutoFixRunning = false
 
 const loadGuests = async (showLoadingSpinner = false) => {
   if (showLoadingSpinner) isLoading.value = true
@@ -480,6 +515,18 @@ const loadGuests = async (showLoadingSpinner = false) => {
       guests.value = res
     } else {
       guests.value = []
+    }
+
+    // Auto-heal missing access IDs in background if any 'N/A' or missing codes detected
+    const hasMissing = guests.value.some(g => !g.access_id || g.access_id === 'N/A' || String(g.access_id).toLowerCase().includes('null'))
+    if (hasMissing && !isAutoFixRunning) {
+      isAutoFixRunning = true
+      apiAutoFixAccessIds().then(fixRes => {
+        isAutoFixRunning = false
+        if (fixRes && fixRes.fixedCount > 0) {
+          loadGuests(false)
+        }
+      }).catch(() => { isAutoFixRunning = false })
     }
   }
   if (showLoadingSpinner) isLoading.value = false

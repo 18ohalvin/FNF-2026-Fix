@@ -281,6 +281,18 @@ export async function apiUpdateMaxCapacity(capacity) {
 }
 
 /**
+ * Auto-fix any guest records in database missing unique Access IDs
+ */
+export async function apiAutoFixAccessIds() {
+  try {
+    return await fetchStaffApi('/api/admin/fix-access-ids', { method: 'POST' })
+  } catch (err) {
+    console.error('[API Client] Failed to auto-fix access IDs:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+/**
  * Fetch Customer Analytics Dashboard Data & Hourly Arrivals
  */
 export async function apiFetchAnalytics(dateStr) {

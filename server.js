@@ -506,54 +506,47 @@ app.post('/api/reservations', async (req, res) => {
   }
 })
 
-// 4b. Test Email Dispatcher Endpoint (Staff only)
-app.post('/api/email/test', requireStaffAuth, async (req, res) => {
+// 4c. Auto-Fix Missing Access IDs Endpoint (Staff only)
+app.post('/api/admin/fix-access-ids', requireStaffAuth, async (req, res) => {
   try {
-    const { email } = req.body
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required for testing' })
-    }
-
-    const testResult = await mailer.sendTransactionalPass({
-      guestName: 'TEST VIP GUEST',
-      accessId: '707',
-      role: 'VIP GUEST',
-      selectedDates: ['day-1'],
-      email,
-      phone: '081707909707'
-    })
-
-    res.json({ success: true, message: 'Test email triggered', testResult })
+    const result = await db.autoFixMissingAccessIds()
+    res.json({ success: true, ...result })
   } catch (err) {
-    console.error('[API Email Test Error]', err)
-    res.status(500).json({ success: false, error: err.message })
+    console.error('[API Auto-Fix Error]', err)
+    res.status(500).json({ error: 'Failed to auto-fix missing access IDs' })
   }
 })
 
-// 5. Venue Scanner API - Process Entrance / Exit Scan
-app.post('/api/scan', requireStaffAuth, async (req, res) => {
+// 5. Ticket Scan Processing Endpoint (Scanner Page)
+app.post('/api/scan/validate', requireStaffAuth, async (req, res) => {
   try {
-    let rawTicket = req.body.ticketCode || req.body.ticketId || req.body.ticket || req.body.code || req.body.accessId || req.body.phone
-    const mode = req.body.mode || req.body.action || 'check-in'
-    const currentDay = req.body.currentDay || req.body.eventDay || req.body.day || 'Day 1'
-    const targetDayNum = normalizeDayId(currentDay)
+    const { ticketCode, mode = 'check-in', currentDay = 'Day 1' } = req.body
 
-    if (!rawTicket) {
-      return res.status(400).json({ success: false, status: 'INVALID', error: 'Ticket ID, Access Code, or Phone Number is required' })
+    if (!ticketCode) {
+      return res.status(400).json({ error: 'Ticket code / QR token is required' })
     }
 
-    if (typeof rawTicket === 'string') {
+    const rawTicket = String(ticketCode).trim()
+    const targetDayNum = normalizeDayId(currentDay)
+
+    let accessId = rawTicket
+    let guestPhone = ''
+
+    if (rawTicket.includes('|')) {
+      const parts = rawTicket.split('|')
+      if (parts.length >= 2) {
+        guestPhone = parts[0].trim()
+        accessId = parts[1].trim()
+      }
+    } else if (rawTicket.includes('phone=')) {
       try {
-        const parsed = JSON.parse(rawTicket)
-        if (parsed.accessId) rawTicket = parsed.accessId
-        else if (parsed.ticketCode) rawTicket = parsed.ticketCode
-        else if (parsed.phone) rawTicket = parsed.phone
+        const urlObj = new URL(rawTicket)
+        const p = urlObj.searchParams.get('phone')
+        const a = urlObj.searchParams.get('access') || urlObj.searchParams.get('id')
+        if (p) guestPhone = p.trim()
+        if (a) accessId = a.trim()
       } catch (e) {
-        if (rawTicket.startsWith('http')) {
-          const parts = rawTicket.split('/')
-          const last = parts[parts.length - 1]
-          if (last) rawTicket = last
-        }
+        // Not a full URL
       }
     }
 
@@ -564,11 +557,21 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
     if (!record) {
       const guestFound = await db.getGuestByPhoneOrName(cleanedCode)
       if (guestFound) {
-        const resv = await db.getReservationByPhone(guestFound.phone)
+        let resv = await db.getReservationByPhone(guestFound.phone)
+        if (!resv || !resv.access_id || resv.access_id === 'N/A') {
+          // On-the-spot auto-healing: generate unique code for guest
+          const newCode = generateShortAccessId(3)
+          await db.createReservation({
+            phone: guestFound.phone,
+            accessId: newCode,
+            selectedDates: JSON.stringify(['day-1', 'day-2', 'day-3', 'day-4', 'day-5'])
+          })
+          resv = await db.getReservationByPhone(guestFound.phone)
+        }
         record = {
           ...guestFound,
-          access_id: resv?.access_id || guestFound.access_id || cleanedCode,
-          selected_dates: resv?.selected_dates || guestFound.selected_dates || JSON.stringify(['day-1'])
+          access_id: resv?.access_id || cleanedCode,
+          selected_dates: resv?.selected_dates || JSON.stringify(['day-1'])
         }
       }
     }
@@ -595,8 +598,8 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
     }
 
     const guestName = `${record.salutation || ''} ${record.first_name || ''} ${record.last_name || ''}`.trim() || 'VIP GUEST'
-    const accessId = record.access_id || cleanedCode
-    const guestPhone = record.phone || record.guest_phone
+    accessId = record.access_id || cleanedCode
+    guestPhone = record.phone || record.guest_phone || guestPhone
 
     // --- LOGIC 2: SPECIFIC DAY VALIDATION ---
     const dateValid = isDayAllowed(record.selected_dates, currentDay)
@@ -912,4 +915,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Localhost]:    http://localhost:${PORT}`)
   console.log(`[WiFi Network]: http://${wifiIp}:${PORT}`)
   console.log(`==================================================`)
+
+  // Automatically backfill and heal any existing guest records missing Access IDs
+  db.autoFixMissingAccessIds().catch(err => console.error('[Auto-Fix Startup Warning]:', err))
 })
