@@ -124,13 +124,15 @@
               <img src="../assets/logo-707.png" alt="707 Logo" class="logo-707" />
             </div>
 
-            <!-- Manual Ticket / Customer Name Input Box -->
-            <div class="manual-input-box">
+            <!-- Manual Ticket / Customer Name Input Box with Live Dropdown Search -->
+            <div class="manual-input-box" ref="searchBoxRef">
               <input
                 v-model="manualTicketInput"
                 type="text"
                 class="ticket-input-field"
                 placeholder="Enter Customer Name, Ticket ID, or Phone"
+                @input="handleSearchInput"
+                @focus="handleSearchInput"
                 @keyup.enter="handleManualSubmit"
               />
               <button
@@ -145,6 +147,43 @@
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
               </button>
+
+              <!-- Live Dropdown Search Results Menu -->
+              <div v-if="showSearchResults && searchResults.length > 0" class="search-dropdown-menu">
+                <div class="dropdown-header">
+                  <span>CLOSEST MATCHES ({{ searchResults.length }})</span>
+                  <span v-if="isSearchingDropdown" class="searching-indicator">Searching...</span>
+                </div>
+                <div class="dropdown-list">
+                  <div
+                    v-for="guest in searchResults"
+                    :key="guest.phone"
+                    class="dropdown-item"
+                    @click.stop="selectSearchResult(guest)"
+                  >
+                    <div class="item-left">
+                      <span class="guest-name-text">
+                        {{ `${guest.first_name || ''} ${guest.last_name || ''}`.toUpperCase().trim() || 'GUEST' }}
+                      </span>
+                      <div class="item-meta">
+                        <span class="role-pill" :class="{ 'vip-pill': (guest.role || '').toUpperCase().includes('VIP') }">
+                          {{ (guest.role || '').toUpperCase().includes('VIP') ? 'VIP GUEST' : 'PUBLIC' }}
+                        </span>
+                        <span class="phone-meta">{{ guest.phone }}</span>
+                      </div>
+                    </div>
+                    <div class="item-right">
+                      <span class="access-code-badge">{{ guest.access_id || 'N/A' }}</span>
+                      <span
+                        class="status-pill"
+                        :class="guest.is_checked_in ? 'status-inside' : 'status-outside'"
+                      >
+                        {{ guest.is_checked_in ? 'INSIDE' : 'OUTSIDE' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -244,7 +283,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Html5Qrcode } from 'html5-qrcode'
-import { apiProcessScan, apiFetchOccupancy, apiResetOccupancy } from '../api/client'
+import { apiProcessScan, apiFetchOccupancy, apiResetOccupancy, apiFetchCustomerDatabase } from '../api/client'
 import RecentScansModal from './RecentScansModal.vue'
 import ScanResultModal from './ScanResultModal.vue'
 import AdjustOccupancyModal from './AdjustOccupancyModal.vue'
@@ -270,6 +309,13 @@ const isResultModalOpen = ref(false)
 const isAdjustOccupancyOpen = ref(false)
 const isModalOpen = ref(false)
 const isCalendarOpen = ref(false)
+
+// Live Dropdown Search State
+const searchBoxRef = ref(null)
+const searchResults = ref([])
+const showSearchResults = ref(false)
+const isSearchingDropdown = ref(false)
+let searchDebounceTimer = null
 
 // Active Operating Event Day State dynamically defaulted from today's GMT+7 time
 const initialDayInfo = getCurrentEventDayGMT7()
@@ -567,9 +613,55 @@ const handleFileUpload = async (event) => {
   }
 }
 
+const handleSearchInput = () => {
+  const query = manualTicketInput.value.trim()
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+
+  if (!query || query.length < 2) {
+    searchResults.value = []
+    showSearchResults.value = false
+    isSearchingDropdown.value = false
+    return
+  }
+
+  isSearchingDropdown.value = true
+  searchDebounceTimer = setTimeout(async () => {
+    try {
+      const res = await apiFetchCustomerDatabase(query)
+      if (res && Array.isArray(res.guests)) {
+        searchResults.value = res.guests.slice(0, 6)
+        showSearchResults.value = searchResults.value.length > 0
+      } else {
+        searchResults.value = []
+        showSearchResults.value = false
+      }
+    } catch (err) {
+      console.warn('[Scanner Dropdown Search] Error:', err)
+      searchResults.value = []
+      showSearchResults.value = false
+    } finally {
+      isSearchingDropdown.value = false
+    }
+  }, 250)
+}
+
+const selectSearchResult = (guest) => {
+  showSearchResults.value = false
+  const code = guest.access_id && guest.access_id !== 'N/A' ? guest.access_id : guest.phone
+  manualTicketInput.value = `${guest.first_name || ''} ${guest.last_name || ''}`.trim()
+  executeScan(code)
+}
+
+const handleOutsideClick = (e) => {
+  if (searchBoxRef.value && !searchBoxRef.value.contains(e.target)) {
+    showSearchResults.value = false
+  }
+}
+
 onMounted(() => {
   loadOccupancyData()
   startCamera()
+  document.addEventListener('click', handleOutsideClick)
   // Auto-refresh occupancy data every 3 seconds for real-time dashboard sync
   pollInterval = setInterval(() => {
     loadOccupancyData()
@@ -578,6 +670,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopCamera()
+  document.removeEventListener('click', handleOutsideClick)
   if (pollInterval) clearInterval(pollInterval)
 })
 </script>
@@ -1040,6 +1133,7 @@ onUnmounted(() => {
 }
 
 .manual-input-box {
+  position: relative;
   width: 100%;
   height: 60px;
   background: #ffffff;
@@ -1048,6 +1142,139 @@ onUnmounted(() => {
   align-items: center;
   padding: 0 16px;
   box-sizing: border-box;
+}
+
+/* Live Dropdown Search Results Floating Menu */
+.search-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 8px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  overflow: hidden;
+  max-height: 340px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-header {
+  padding: 10px 14px;
+  background: #f7f7f7;
+  border-bottom: 1px solid #eeeeee;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #555555;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.searching-indicator {
+  font-size: 11px;
+  font-weight: 500;
+  color: #0d6efd;
+}
+
+.dropdown-list {
+  overflow-y: auto;
+  max-height: 290px;
+}
+
+.dropdown-item {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f4f4f4;
+}
+
+.item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guest-name-text {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.role-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #e0e0e0;
+  color: #333333;
+}
+
+.role-pill.vip-pill {
+  background: #000000;
+  color: #ffffff;
+}
+
+.phone-meta {
+  font-size: 11px;
+  color: #666666;
+}
+
+.item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.access-code-badge {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000000;
+  background: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.status-pill.status-inside {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.status-pill.status-outside {
+  background: #f1f3f4;
+  color: #5f6368;
 }
 
 .ticket-input-field {
