@@ -324,6 +324,8 @@ class DatabaseAdapter {
     const lName = String(lastName || '').trim().toUpperCase()
     const mail = String(email || 'guest@707.co.id').trim().toLowerCase()
     const ig = String(instagram || '').trim()
+    // Preserve original role if guest already registered previously
+    const finalRole = (existing && existing.role) ? existing.role : role
 
     if (this.driverType === 'postgres') {
       await this.pgPool.query(
@@ -335,10 +337,9 @@ class DatabaseAdapter {
            last_name = EXCLUDED.last_name,
            email = EXCLUDED.email,
            instagram = EXCLUDED.instagram,
-           role = EXCLUDED.role,
            is_registered = 1,
            updated_at = CURRENT_TIMESTAMP`,
-        [rawPhone, salutation, fName, lName, mail, ig, role]
+        [rawPhone, salutation, fName, lName, mail, ig, finalRole]
       )
     } else if (this.driverType === 'mysql') {
       await this.mysqlPool.query(
@@ -350,10 +351,9 @@ class DatabaseAdapter {
            last_name = VALUES(last_name),
            email = VALUES(email),
            instagram = VALUES(instagram),
-           role = VALUES(role),
            is_registered = 1,
            updated_at = CURRENT_TIMESTAMP`,
-        [rawPhone, salutation, fName, lName, mail, ig, role]
+        [rawPhone, salutation, fName, lName, mail, ig, finalRole]
       )
     } else {
       this.sqliteDb.prepare(`
@@ -365,12 +365,11 @@ class DatabaseAdapter {
           last_name = excluded.last_name,
           email = excluded.email,
           instagram = excluded.instagram,
-          role = excluded.role,
           is_registered = 1,
           updated_at = CURRENT_TIMESTAMP
-      `).run(rawPhone, salutation, fName, lName, mail, ig, role)
+      `).run(rawPhone, salutation, fName, lName, mail, ig, finalRole)
     }
-    return { success: true, phone: rawPhone }
+    return { success: true, phone: rawPhone, role: finalRole }
   }
 
   async updateGuest(phone, updateData) {
