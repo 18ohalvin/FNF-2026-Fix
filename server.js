@@ -654,6 +654,41 @@ app.post('/api/scan/validate', requireStaffAuth, async (req, res) => {
           checkedInTime = `${hh}:${mm}`
         }
       } else {
+        const liveOcc = await db.getLiveOccupancy(`day-${targetDayNum}`)
+        const maxCap = await db.getMaxCapacity()
+
+        if (liveOcc >= maxCap) {
+          status = 'VENUE_FULL'
+          message = `VENUE CAPACITY FULL (${liveOcc}/${maxCap}). Entry blocked.`
+          checkedInTime = `${hh}:${mm}`
+
+          await db.recordScan({
+            guestPhone,
+            accessId,
+            guestName,
+            action: mode,
+            status,
+            message,
+            eventDay: `day-${targetDayNum}`
+          })
+
+          return res.json({
+            success: false,
+            status,
+            mode,
+            message,
+            checkedInTime,
+            guest: {
+              name: guestName,
+              phone: guestPhone,
+              accessId,
+              role: record.role || 'VIP GUEST'
+            },
+            liveOccupancy: liveOcc,
+            maxCapacity: maxCap
+          })
+        }
+
         status = 'GRANTED'
         message = `ACCESS GRANTED: ${guestName} (${record.role || 'VIP GUEST'})`
         checkedInTime = `${hh}:${mm}`

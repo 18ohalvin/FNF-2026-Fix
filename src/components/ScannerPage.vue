@@ -176,7 +176,8 @@
             <div class="progress-track">
               <div
                 class="progress-fill"
-                :style="{ width: `${occupancyPercent}%` }"
+                :class="{ 'warning-gradient': occupancyPercent >= 90 }"
+                :style="{ width: `${Math.min(100, occupancyPercent)}%` }"
               ></div>
             </div>
           </div>
@@ -1174,7 +1175,11 @@ onUnmounted(() => {
   height: 100%;
   background-color: #000000;
   border-radius: 99px;
-  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s ease;
+}
+
+.progress-fill.warning-gradient {
+  background: linear-gradient(90deg, #ff7a00 0%, #d32f2f 65%, #8b0000 100%);
 }
 
 .analytics-dashboard-btn {
