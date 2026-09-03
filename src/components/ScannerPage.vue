@@ -1207,8 +1207,8 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-/* RESPONSIVE LAYOUT FOR SMALL MOBILE / TABLET SCREENS (FIT TO SCREEN, NO SCROLL) */
-@media (max-width: 850px) {
+/* RESPONSIVE LAYOUT FOR PORTRAIT SCREEN MODE (MOBILE & TABLET PORTRAIT) */
+@media (max-width: 1024px) and (orientation: portrait), (max-width: 900px) {
   .scanner-page-container {
     height: 100vh;
     height: 100dvh;
@@ -1225,15 +1225,15 @@ onUnmounted(() => {
   
   .left-pane {
     flex: 1;
-    min-height: 0;
+    min-height: 240px;
     width: 100%;
     height: auto;
     overflow: hidden;
   }
 
   .tabs-header {
-    height: 44px;
-    min-height: 44px;
+    height: 48px;
+    min-height: 48px;
   }
 
   .viewfinder-wrapper {
@@ -1261,11 +1261,12 @@ onUnmounted(() => {
     border-left: none;
     border-top: 1px solid #000000;
     overflow: hidden;
+    background-color: #ffffff;
   }
 
   .pane-content {
-    padding: 10px 16px;
-    gap: 8px;
+    padding: 12px 16px;
+    gap: 10px;
     height: auto;
   }
 
@@ -1274,25 +1275,28 @@ onUnmounted(() => {
   }
 
   .brand-subcontainer {
-    display: none; /* Hide top logo on compact mobile to maximize camera viewport */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
   }
 
   .manual-input-box {
-    height: 42px;
+    height: 46px;
     padding: 0 12px;
   }
 
   .pane-divider {
-    margin: 2px 0;
+    margin: 4px 0;
   }
 
   .occupancy-section {
     margin: 0;
-    gap: 4px;
+    gap: 6px;
   }
 
   .occupancy-header {
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .occupancy-counter-wrapper {
@@ -1300,7 +1304,7 @@ onUnmounted(() => {
   }
 
   .counter-number {
-    font-size: clamp(32px, 6vh, 44px);
+    font-size: clamp(36px, 5vh, 48px);
     line-height: 1;
   }
 
@@ -1309,18 +1313,18 @@ onUnmounted(() => {
   }
 
   .progress-track {
-    height: 3px;
+    height: 4px;
   }
 
   .analytics-dashboard-btn {
-    height: 42px;
+    height: 44px;
     padding: 0 14px;
     font-size: 12px;
   }
 
   .btn-arrow-icon {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
   }
 
   .camera-toolbar {
@@ -1328,8 +1332,18 @@ onUnmounted(() => {
   }
 
   .tool-btn {
-    padding: 6px 12px;
-    font-size: 11px;
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-subcontainer {
+    display: none; /* Hide top logo only on narrow mobile screens to maximize camera viewport */
+  }
+
+  .counter-number {
+    font-size: clamp(32px, 5vh, 42px);
   }
 }
 

@@ -953,9 +953,9 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .analytics-page-container {
-    padding: 0 16px 16px 16px;
+    padding: 0 16px 24px 16px;
   }
 
   .header-subcontainer {
@@ -973,7 +973,8 @@ onUnmounted(() => {
 
   .header-action-buttons {
     width: 100%;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
 
@@ -982,12 +983,28 @@ onUnmounted(() => {
     justify-content: space-between;
   }
 
+  .occupancy-data-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .adjust-occupancy-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   .counter-number {
-    font-size: 72px;
+    font-size: clamp(48px, 8vw, 72px);
   }
 
   .counter-max {
     font-size: 20px;
+  }
+
+  .summary-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .chart-wrapper {
@@ -996,7 +1013,30 @@ onUnmounted(() => {
   }
 
   .chart-body {
-    min-width: 500px;
+    min-width: 540px;
+  }
+}
+
+@media (max-width: 600px) {
+  .header-action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .counter-number {
+    font-size: 52px;
+  }
+
+  .kpi-card {
+    height: 72px;
+    padding: 12px 18px;
+  }
+
+  .kpi-number {
+    font-size: 36px;
   }
 }
 </style>
