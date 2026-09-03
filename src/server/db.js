@@ -1027,6 +1027,13 @@ class DatabaseAdapter {
     const dayTag = `day-${dayNum}`
     const currentOccupancy = await this.getLiveOccupancy(dayTag)
 
+    const isPg = this.driverType === 'postgres'
+    const isMysql = this.driverType === 'mysql'
+    let totalCheckedIn = 0
+    let vipsCheckedIn = 0
+    let failedScans = 0
+    let totalReservations = 0
+
     const timeSlots = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
     const totalCheckedInSlots = new Array(12).fill(0)
     const vipCheckedInSlots = new Array(12).fill(0)
