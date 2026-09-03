@@ -76,32 +76,12 @@
       </div>
     </main>
 
-    <!-- Sticky Bottom CTA Area -->
-    <div class="sticky-bottom-area">
-      <CtaButton
-        :active="true"
-        label="DONE"
-        @click="emit('home')"
-      />
-      <div class="didnt-receive-email-wrapper">
-        <button
-          type="button"
-          id="ticket-didnt-receive-email-btn"
-          class="didnt-receive-email-btn"
-          @click="isDownloadModalOpen = true"
-        >
-          Didn't receive the email?
-        </button>
-      </div>
-    </div>
-
-    <!-- Download E-Pass Modal (Global UI Design System) -->
-    <DownloadEPassModal
-      :is-open="isDownloadModalOpen"
-      :is-downloading="isDownloading"
-      @close="isDownloadModalOpen = false"
-      @download="handleDownloadEPassPdf"
-      @open-update-email="isUpdateEmailOpen = true"
+    <!-- Sticky Bottom CTA Button: DOWNLOAD E-PASS (Direct PDF Download Action) -->
+    <CtaButton
+      :active="!isDownloading"
+      :loading="isDownloading"
+      :label="isDownloading ? 'GENERATING PDF...' : 'DOWNLOAD E-PASS'"
+      @click="handleDownloadEPassPdf"
     />
 
     <!-- Update Guest Email Modal with Success State & Fail-Safe Checks -->
@@ -121,7 +101,6 @@ import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import CtaButton from './CtaButton.vue'
 import UpdateEmailModal from './UpdateEmailModal.vue'
-import DownloadEPassModal from './DownloadEPassModal.vue'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
 import { LOGO_707_BASE64, LOGO_707_WHITE_BASE64, AD_BANNER_BASE64, SPONSOR_PROMO_URL } from '../utils/clientAssets'
@@ -152,7 +131,6 @@ const emit = defineEmits(['back', 'home'])
 
 const isDownloading = ref(false)
 const hasDownloaded = ref(false)
-const isDownloadModalOpen = ref(false)
 const isUpdateEmailOpen = ref(false)
 const overrideEmail = ref('')
 
@@ -630,42 +608,4 @@ const handleDownloadEPassPdf = async () => {
   line-height: 14px;
 }
 
-.sticky-bottom-area {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: #f2f2f2;
-  z-index: 10;
-}
-
-.didnt-receive-email-wrapper {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 14px 0 max(16px, env(safe-area-inset-bottom, 16px)) 0;
-  background-color: #f2f2f2;
-}
-
-.didnt-receive-email-btn {
-  background: transparent;
-  border: none;
-  color: #666666;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 400;
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 4px 12px;
-  outline: none;
-  transition: color 0.15s ease;
-}
-
-.didnt-receive-email-btn:hover {
-  color: #000000;
-}
 </style>
