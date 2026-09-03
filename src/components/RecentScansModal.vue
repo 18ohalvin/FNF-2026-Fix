@@ -103,8 +103,19 @@ const emit = defineEmits(['close', 'refresh', 'reset'])
 const formatTime = (ts) => {
   if (!ts) return 'Just now'
   try {
-    const d = new Date(ts)
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    let str = String(ts)
+    if (!str.includes('T') && !str.includes('Z') && str.length >= 19) {
+      str = str.replace(' ', 'T') + 'Z'
+    }
+    const d = new Date(str)
+    if (isNaN(d.getTime())) return 'Recent'
+    return d.toLocaleTimeString('en-US', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
   } catch (e) {
     return 'Recent'
   }

@@ -559,16 +559,16 @@ app.post('/api/scan', requireStaffAuth, async (req, res) => {
 
     const cleanedCode = String(rawTicket).trim()
     
-    // Find matching reservation & guest
+    // Find matching reservation & guest (by Access ID, Phone Number, or Customer Name)
     let record = await db.getReservationByAccessId(cleanedCode)
     if (!record) {
-      const guestOnly = await db.getGuestByPhone(cleanedCode)
-      if (guestOnly) {
-        const resv = await db.getReservationByPhone(guestOnly.phone)
+      const guestFound = await db.getGuestByPhoneOrName(cleanedCode)
+      if (guestFound) {
+        const resv = await db.getReservationByPhone(guestFound.phone)
         record = {
-          ...guestOnly,
-          access_id: resv?.access_id || cleanedCode,
-          selected_dates: resv?.selected_dates || JSON.stringify(['day-1'])
+          ...guestFound,
+          access_id: resv?.access_id || guestFound.access_id || cleanedCode,
+          selected_dates: resv?.selected_dates || guestFound.selected_dates || JSON.stringify(['day-1'])
         }
       }
     }

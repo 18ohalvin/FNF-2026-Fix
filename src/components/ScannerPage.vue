@@ -124,19 +124,19 @@
               <img src="../assets/logo-707.png" alt="707 Logo" class="logo-707" />
             </div>
 
-            <!-- Manual Ticket Input Box -->
+            <!-- Manual Ticket / Customer Name Input Box -->
             <div class="manual-input-box">
               <input
                 v-model="manualTicketInput"
                 type="text"
                 class="ticket-input-field"
-                placeholder="Enter Guest Ticket ID Manually"
+                placeholder="Enter Customer Name, Ticket ID, or Phone"
                 @keyup.enter="handleManualSubmit"
               />
               <button
                 type="button"
                 class="search-submit-btn"
-                aria-label="Search Ticket ID"
+                aria-label="Search Customer Name or Ticket ID"
                 :disabled="isProcessingScan"
                 @click="handleManualSubmit"
               >

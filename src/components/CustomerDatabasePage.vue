@@ -518,17 +518,23 @@ const formatTicketNumbers = (selectedDatesJson) => {
 
 const formatScanTime = (scannedAt, isCheckedIn) => {
   if (!scannedAt && !isCheckedIn) return 'Not Scanned'
-  if (!scannedAt) return 'Day 1 - 12:11 PM'
+  if (!scannedAt) return 'Checked In'
   try {
-    const d = new Date(scannedAt)
-    if (isNaN(d.getTime())) return 'Day 1 - 12:11 PM'
-    const hours = d.getHours()
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    const ampm = hours >= 12 ? 'PM' : 'AM'
-    const formattedHours = hours % 12 || 12
-    return `Day 1 - ${formattedHours}:${minutes} ${ampm}`
+    let str = String(scannedAt)
+    if (!str.includes('T') && !str.includes('Z') && str.length >= 19) {
+      str = str.replace(' ', 'T') + 'Z'
+    }
+    const d = new Date(str)
+    if (isNaN(d.getTime())) return 'Checked In'
+    const timeStr = d.toLocaleTimeString('en-US', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+    return `Day 1 - ${timeStr}`
   } catch (e) {
-    return 'Day 1 - 12:11 PM'
+    return 'Checked In'
   }
 }
 
@@ -551,7 +557,7 @@ const handleExportData = async () => {
       return
     }
 
-    // CSV Column Headers
+    // Standard CSV headers for Excel / Numbers / Google Sheets
     const headers = [
       'No',
       'Salutation',
@@ -559,14 +565,13 @@ const handleExportData = async () => {
       'Last Name',
       'Full Name',
       'Phone Number',
-      'Email',
-      'Instagram',
-      'Access Type / Role',
+      'Email Address',
+      'Role',
       'Access ID',
       'Registered Days',
-      'Check-in Status',
-      'Last Scanned Time',
-      'Registration Date'
+      'Check-In Status',
+      'Last Scanned Time (GMT+7)',
+      'Registration Date (GMT+7)'
     ]
 
     // Escape CSV cell helper (RFC 4180)

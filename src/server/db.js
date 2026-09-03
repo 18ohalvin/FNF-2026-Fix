@@ -501,6 +501,57 @@ class DatabaseAdapter {
     }
   }
 
+  async getGuestByPhoneOrName(query) {
+    await this.connect()
+    if (!query || !String(query).trim()) return null
+    const cleaned = String(query).trim()
+    const raw = cleaned.replace(/\D/g, '')
+    const norm = normalizePhoneNumber(cleaned)
+    const pattern = `%${cleaned.toLowerCase()}%`
+
+    if (this.driverType === 'postgres') {
+      const res = await this.pgPool.query(
+        `SELECT g.*, 
+          (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as access_id,
+          (SELECT r.selected_dates FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as selected_dates
+         FROM guests g 
+         WHERE g.phone = $1 OR g.phone = $2 OR g.phone = $3 
+            OR LOWER(g.first_name) LIKE $4 OR LOWER(g.last_name) LIKE $4
+            OR LOWER(CONCAT(g.first_name, ' ', g.last_name)) LIKE $4
+            OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE $4
+         ORDER BY g.created_at DESC LIMIT 1`,
+        [cleaned, raw, `0${norm}`, pattern]
+      )
+      return res.rows[0] || null
+    } else if (this.driverType === 'mysql') {
+      const [rows] = await this.mysqlPool.query(
+        `SELECT g.*, 
+          (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as access_id,
+          (SELECT r.selected_dates FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as selected_dates
+         FROM guests g 
+         WHERE g.phone = ? OR g.phone = ? OR g.phone = ? 
+            OR LOWER(g.first_name) LIKE ? OR LOWER(g.last_name) LIKE ?
+            OR LOWER(CONCAT(g.first_name, ' ', g.last_name)) LIKE ?
+            OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE ?
+         ORDER BY g.created_at DESC LIMIT 1`,
+        [cleaned, raw, `0${norm}`, pattern, pattern, pattern, pattern]
+      )
+      return rows[0] || null
+    } else {
+      return this.sqliteDb.prepare(
+        `SELECT g.*, 
+          (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as access_id,
+          (SELECT r.selected_dates FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as selected_dates
+         FROM guests g 
+         WHERE g.phone = ? OR g.phone = ? OR g.phone = ? 
+            OR LOWER(g.first_name) LIKE ? OR LOWER(g.last_name) LIKE ?
+            OR LOWER(g.first_name || ' ' || g.last_name) LIKE ?
+            OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE ?
+         ORDER BY g.created_at DESC LIMIT 1`
+      ).get(cleaned, raw, `0${norm}`, pattern, pattern, pattern, pattern) || null
+    }
+  }
+
   async createReservation({ phone, accessId, selectedDates }) {
     await this.connect()
     let existingGuest = await this.getGuestByPhone(phone)
@@ -537,27 +588,28 @@ class DatabaseAdapter {
 
   // --- Scans & Live Occupancy ---
 
-  async recordScan({ id, guestPhone, accessId, guestName, action, status, message, eventDay = 'day-1' }) {
+  async recordScan({ id, guestPhone, accessId, guestName, action, status, message, eventDay = 'day-1', scannedAt }) {
     await this.connect()
     const scanId = id || `scan_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    const nowIso = scannedAt || new Date().toISOString()
 
     if (this.driverType === 'postgres') {
       await this.pgPool.query(
-        `INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message, event_day)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [scanId, guestPhone, accessId, guestName, action, status, message, eventDay]
+        `INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message, event_day, scanned_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [scanId, guestPhone, accessId, guestName, action, status, message, eventDay, nowIso]
       )
     } else if (this.driverType === 'mysql') {
       await this.mysqlPool.query(
-        `INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message, event_day)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [scanId, guestPhone, accessId, guestName, action, status, message, eventDay]
+        `INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message, event_day, scanned_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [scanId, guestPhone, accessId, guestName, action, status, message, eventDay, nowIso]
       )
     } else {
       this.sqliteDb.prepare(`
-        INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message, event_day)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(scanId, guestPhone, accessId, guestName, action, status, message, eventDay)
+        INSERT INTO scans (id, guest_phone, access_id, guest_name, action, status, message, event_day, scanned_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(scanId, guestPhone, accessId, guestName, action, status, message, eventDay, nowIso)
     }
     return scanId
   }
@@ -877,10 +929,27 @@ class DatabaseAdapter {
       scansList = this.sqliteDb.prepare("SELECT s.*, g.role as guest_role FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.event_day = ? OR s.event_day LIKE ?").all(dayTag, `%${dayTag}%`)
     }
 
-    // Populate hourly buckets from real scan timestamps
+    // Populate hourly buckets from real scan timestamps (GMT+7 Jakarta Time)
+    const getJakartaHour = (scannedAt) => {
+      if (!scannedAt) return 12
+      let str = String(scannedAt)
+      if (!str.includes('T') && !str.includes('Z') && str.length >= 19) {
+        str = str.replace(' ', 'T') + 'Z'
+      }
+      const d = new Date(str)
+      if (isNaN(d.getTime())) return 12
+
+      try {
+        const hourStr = d.toLocaleTimeString('en-US', { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit' })
+        const hour = parseInt(hourStr, 10)
+        return isNaN(hour) ? 12 : hour
+      } catch (e) {
+        return d.getHours()
+      }
+    }
+
     scansList.forEach(s => {
-      const d = new Date(s.scanned_at || Date.now())
-      const hour = isNaN(d.getHours()) ? 12 : d.getHours()
+      const hour = getJakartaHour(s.scanned_at)
       const slotIdx = Math.min(11, Math.max(0, Math.floor(hour / 2)))
 
       if (s.action === 'check-in' && s.status === 'GRANTED') {
