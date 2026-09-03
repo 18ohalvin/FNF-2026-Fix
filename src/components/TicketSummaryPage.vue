@@ -81,7 +81,7 @@
           <div class="notice-text-content">
             <p class="notice-heading">DIDN'T RECEIVE THE EMAIL?</p>
             <p class="notice-body">
-              Check your spam folder or <button type="button" id="open-update-email-btn" class="update-email-link" @click="isUpdateEmailOpen = true">click here</button> to update your email address.
+              Download your e-pass manually <button type="button" id="download-epass-manual-btn" class="manual-download-link" :disabled="isDownloading" @click="handleDownloadEPassPdf"><strong><u>here</u></strong></button>.
             </p>
           </div>
         </div>
@@ -668,7 +668,8 @@ const handleDownloadEPassPdf = async () => {
   margin: 0;
 }
 
-.update-email-link {
+.update-email-link,
+.manual-download-link {
   background: transparent;
   border: none;
   padding: 0;
@@ -683,7 +684,13 @@ const handleDownloadEPassPdf = async () => {
   -webkit-tap-highlight-color: transparent;
 }
 
-.update-email-link:hover {
+.update-email-link:hover,
+.manual-download-link:hover:not(:disabled) {
   opacity: 0.75;
+}
+
+.manual-download-link:disabled {
+  opacity: 0.5;
+  cursor: wait;
 }
 </style>
