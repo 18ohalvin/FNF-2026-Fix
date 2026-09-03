@@ -248,6 +248,7 @@ import RecentScansModal from './RecentScansModal.vue'
 import ScanResultModal from './ScanResultModal.vue'
 import AdjustOccupancyModal from './AdjustOccupancyModal.vue'
 import CalendarModal from './CalendarModal.vue'
+import { getCurrentEventDayGMT7 } from '../utils/dateHelper'
 
 const emit = defineEmits(['nav-analytics', 'nav-database', 'logout'])
 
@@ -269,9 +270,10 @@ const isAdjustOccupancyOpen = ref(false)
 const isModalOpen = ref(false)
 const isCalendarOpen = ref(false)
 
-// Active Operating Event Day State
-const activeDayId = ref('day-1')
-const eventDayText = ref('DAY 1 - WEDNESDAY, 02 SEP 2026')
+// Active Operating Event Day State dynamically defaulted from today's GMT+7 time
+const initialDayInfo = getCurrentEventDayGMT7()
+const activeDayId = ref(initialDayInfo.id)
+const eventDayText = ref(initialDayInfo.dateText)
 
 // Occupancy Data State
 const currentOccupancy = ref(0)

@@ -323,6 +323,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CalendarModal from './CalendarModal.vue'
 import AdjustOccupancyModal from './AdjustOccupancyModal.vue'
 import { apiFetchAnalytics } from '../api/client'
+import { getCurrentEventDayGMT7 } from '../utils/dateHelper'
 
 const emit = defineEmits(['nav-database', 'nav-scanner', 'logout'])
 
@@ -332,13 +333,14 @@ const handleLogout = () => {
   emit('logout')
 }
 
+const initialDayInfo = getCurrentEventDayGMT7()
 const isCalendarOpen = ref(false)
 const isAdjustModalOpen = ref(false)
-const selectedIsoDate = ref('2026-09-02')
-const displayDateText = ref('Day 1 - 02 September 2026')
+const selectedIsoDate = ref(initialDayInfo.isoDate)
+const displayDateText = ref(initialDayInfo.shortText)
 const activeTab = ref('totalCheckedIn') // 'totalCheckedIn' | 'upcomingArrivals' | 'vipsCheckedIn' | 'failedScans'
 
-const occupancyData = ref({ current: 0, capacity: 100, eventDayText: 'DAY 1 - WEDNESDAY, 02 SEPTEMBER 2026' })
+const occupancyData = ref({ current: 0, capacity: 100, eventDayText: initialDayInfo.dateText })
 
 const handleCapacityUpdated = (newCapacity) => {
   occupancyData.value.capacity = newCapacity
