@@ -59,7 +59,7 @@
         <div class="occupancy-header">
           <span class="occupancy-title">LIVE OCCUPANCY</span>
           <span class="header-separator">|</span>
-          <span class="event-date-text">{{ occupancyData.eventDayText || 'DAY 1 - MONDAY, 02 SEPTEMBER 2026' }}</span>
+          <span class="event-date-text">{{ occupancyData.eventDayText || initialDayInfo.dateText }}</span>
         </div>
 
         <div class="occupancy-data-container">

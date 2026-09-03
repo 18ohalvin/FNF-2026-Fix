@@ -79,6 +79,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { getCurrentEventDayGMT7 } from '../utils/dateHelper'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -105,11 +106,22 @@ const selectedDayId = ref('all')
 
 watch(() => props.isOpen, (open) => {
   if (open) {
-    if (!props.selectedDate || props.selectedDate.toLowerCase().includes('all')) {
+    const query = String(props.selectedDate || '').toLowerCase().trim()
+    if (!query || query.includes('all')) {
       selectedDayId.value = props.showAllOption ? 'all' : 'day-1'
     } else {
-      const matched = eventDays.value.find(d => props.selectedDate && (props.selectedDate.includes(d.badge) || props.selectedDate.includes(d.isoDate) || props.selectedDate.includes(d.id)))
-      selectedDayId.value = matched ? matched.id : (props.showAllOption ? 'all' : 'day-1')
+      const matched = eventDays.value.find(d => 
+        query.includes(d.id.toLowerCase()) || 
+        query.includes(d.badge.toLowerCase()) || 
+        (d.isoDate && query.includes(d.isoDate.toLowerCase())) ||
+        query.includes(d.title.toLowerCase())
+      )
+      if (matched) {
+        selectedDayId.value = matched.id
+      } else {
+        const todayInfo = getCurrentEventDayGMT7()
+        selectedDayId.value = todayInfo.id
+      }
     }
   }
 })

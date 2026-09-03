@@ -1,4 +1,5 @@
 import { env } from '../config/env'
+import { getCurrentEventDayGMT7 } from '../utils/dateHelper'
 
 const API_BASE = env.apiBaseUrl || ''
 
@@ -306,8 +307,9 @@ export async function apiFetchAnalytics(dateStr) {
     return await fetchStaffApi(`/api/analytics${query}`)
   } catch (err) {
     console.warn('[API Client] Analytics endpoint fallback:', err)
+    const todayInfo = getCurrentEventDayGMT7()
     return {
-      occupancy: { current: 0, capacity: 100, eventDayText: 'DAY 1 - MONDAY, 02 SEPTEMBER 2026' },
+      occupancy: { current: 0, capacity: 100, eventDayText: todayInfo.dateText },
       summary: { totalCheckedIn: 0, upcomingArrivals: 0, vipsCheckedIn: 0, failedScans: 0 },
       hourlyArrivals: [
         { slot: '00:00', count: 0 }, { slot: '02:00', count: 0 }, { slot: '04:00', count: 0 },
