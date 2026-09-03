@@ -31,33 +31,60 @@
             <!-- Capacity Numbers Header (Figma 472:286) -->
             <div class="capacity-text-row">
               <div class="target-capacity-display">
-                <span class="target-val">{{ capacityValue }}</span>
-                <span class="max-total">/10000</span>
+                <input
+                  v-model.number="capacityValue"
+                  type="number"
+                  min="10"
+                  max="10000"
+                  step="10"
+                  class="target-val-input"
+                  @change="clampToStep"
+                />
+                <span class="max-total">/ 10000</span>
               </div>
               <div class="current-capacity-display">
-                Current Capacity: {{ currentCapacity }}
+                Current: {{ currentCapacity }}
               </div>
             </div>
 
-            <!-- Custom Figma Style Slider (Figma 472:282) -->
-            <div class="slider-wrapper">
-              <div
-                class="slider-track-active"
-                :style="{ width: `${sliderPercent}%` }"
-              ></div>
-              <div
-                class="slider-track-inactive"
-                :style="{ left: `${sliderPercent}%`, width: `${100 - sliderPercent}%` }"
-              ></div>
-              <input
-                v-model.number="capacityValue"
-                type="range"
-                min="1"
-                max="10000"
-                step="1"
-                class="figma-slider-input"
-                aria-label="Adjust Occupancy Limit"
-              />
+            <!-- Custom Figma Style Slider with Multiples of 10 -->
+            <div class="slider-control-group">
+              <button
+                type="button"
+                class="step-btn"
+                title="Decrease by 10"
+                @click="adjustStep(-10)"
+              >
+                -10
+              </button>
+              <div class="slider-wrapper">
+                <div
+                  class="slider-track-active"
+                  :style="{ width: `${sliderPercent}%` }"
+                ></div>
+                <div
+                  class="slider-track-inactive"
+                  :style="{ left: `${sliderPercent}%`, width: `${100 - sliderPercent}%` }"
+                ></div>
+                <input
+                  v-model.number="capacityValue"
+                  type="range"
+                  min="10"
+                  max="10000"
+                  step="10"
+                  class="figma-slider-input"
+                  aria-label="Adjust Occupancy Limit"
+                  @input="clampToStep"
+                />
+              </div>
+              <button
+                type="button"
+                class="step-btn"
+                title="Increase by 10"
+                @click="adjustStep(10)"
+              >
+                +10
+              </button>
             </div>
           </div>
 
@@ -71,7 +98,7 @@
             <button
               type="button"
               class="btn-save-confirm"
-              :disabled="isSaving || capacityValue < 1 || capacityValue > 10000"
+              :disabled="isSaving || capacityValue < 10 || capacityValue > 10000"
               @click="handleSave"
             >
               <span v-if="isSaving">Saving...</span>
@@ -110,25 +137,38 @@ const isSaving = ref(false)
 const errorMessage = ref('')
 
 const sliderPercent = computed(() => {
-  const val = Number(capacityValue.value) || 1
+  const val = Number(capacityValue.value) || 10
   return Math.max(0, Math.min(100, (val / 10000) * 100))
 })
+
+const clampToStep = () => {
+  let num = parseInt(capacityValue.value, 10)
+  if (isNaN(num)) num = 100
+  num = Math.round(num / 10) * 10
+  capacityValue.value = Math.max(10, Math.min(10000, num))
+}
+
+const adjustStep = (delta) => {
+  let num = parseInt(capacityValue.value, 10)
+  if (isNaN(num)) num = 100
+  num = Math.round((num + delta) / 10) * 10
+  capacityValue.value = Math.max(10, Math.min(10000, num))
+}
 
 watch(
   () => props.isOpen,
   (open) => {
     if (open) {
-      capacityValue.value = Number(props.currentCapacity) || 100
+      const initial = Number(props.currentCapacity) || 100
+      capacityValue.value = Math.round(initial / 10) * 10
       errorMessage.value = ''
     }
   }
 )
 
 const handleSave = async () => {
-  let num = parseInt(capacityValue.value, 10)
-  if (isNaN(num)) num = 100
-  num = Math.max(1, Math.min(10000, num))
-  capacityValue.value = num
+  clampToStep()
+  const num = capacityValue.value
 
   isSaving.value = true
   errorMessage.value = ''
@@ -247,11 +287,26 @@ const handleSave = async () => {
   color: #000000;
 }
 
-.target-val {
+.target-val-input {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 32px;
   font-weight: 500;
   line-height: 1;
   color: #000000;
+  width: 110px;
+  border: none;
+  border-bottom: 2px solid #000000;
+  background: transparent;
+  outline: none;
+  padding: 0;
+  margin-right: 4px;
+  -moz-appearance: textfield;
+}
+
+.target-val-input::-webkit-outer-spin-button,
+.target-val-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .max-total {
@@ -266,10 +321,43 @@ const handleSave = async () => {
   color: #000000;
 }
 
-/* CUSTOM FIGMA SLIDER */
+/* CUSTOM FIGMA SLIDER & STEP CONTROL GROUP */
+.slider-control-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.step-btn {
+  height: 36px;
+  min-width: 44px;
+  padding: 0 8px;
+  background: #f0f0f0;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.step-btn:hover {
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+}
+
 .slider-wrapper {
   position: relative;
-  width: 100%;
+  flex: 1;
   height: 24px;
   display: flex;
   align-items: center;
