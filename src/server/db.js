@@ -413,7 +413,12 @@ class DatabaseAdapter {
         newDates = JSON.stringify(['day-1'])
       }
       
-      await this.createReservation({ phone: targetPhone, accessId: newAccess, selectedDates: newDates })
+      await this.createReservation({
+        phone: targetPhone,
+        accessId: newAccess,
+        selectedDates: newDates,
+        replaceDates: true
+      })
     }
 
     return await this.getGuestByPhone(targetPhone)
@@ -603,7 +608,7 @@ class DatabaseAdapter {
     }
   }
 
-  async createReservation({ phone, accessId, selectedDates }) {
+  async createReservation({ phone, accessId, selectedDates, replaceDates = false }) {
     await this.connect()
     let existingGuest = await this.getGuestByPhone(phone)
     if (!existingGuest) {
@@ -618,9 +623,9 @@ class DatabaseAdapter {
     // Check for existing reservation to merge dates & preserve accessId
     const existingResv = await this.getReservationByPhone(guestPhoneKey)
     let finalAccessId = accessId
-    let finalDates = selectedDates
+    let finalDates = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates || ['day-1'])
 
-    if (existingResv) {
+    if (existingResv && !replaceDates) {
       if (existingResv.access_id && existingResv.access_id !== 'N/A' && !existingResv.access_id.toLowerCase().includes('null')) {
         finalAccessId = existingResv.access_id
       }
@@ -632,8 +637,10 @@ class DatabaseAdapter {
       } catch (e) {
         finalDates = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
       }
-    } else {
-      finalDates = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
+    } else if (existingResv && replaceDates) {
+      if (!finalAccessId && existingResv.access_id) {
+        finalAccessId = existingResv.access_id
+      }
     }
 
     if (this.driverType === 'postgres') {
