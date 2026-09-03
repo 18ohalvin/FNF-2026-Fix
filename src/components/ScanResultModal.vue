@@ -399,6 +399,9 @@ onUnmounted(() => {
 .result-modal {
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
   border-radius: 8px;
   padding: 48px 32px;
   box-sizing: border-box;
@@ -407,6 +410,19 @@ onUnmounted(() => {
   gap: 32px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
   animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (max-width: 600px) {
+  .result-modal {
+    padding: 28px 20px;
+    gap: 20px;
+  }
+  .title-green,
+  .title-white,
+  .title-stacked,
+  .guest-name {
+    font-size: 24px;
+  }
 }
 
 @keyframes modalPop {

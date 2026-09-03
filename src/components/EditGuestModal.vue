@@ -421,6 +421,21 @@ const handleSubmit = async () => {
   cursor: not-allowed;
 }
 
+@media (max-width: 600px) {
+  .edit-modal-card {
+    padding: 24px 18px;
+    max-height: 94dvh;
+  }
+  .form-row-grid,
+  .form-row-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .col-salutation {
+    width: 100%;
+  }
+}
+
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: opacity 0.2s ease;
