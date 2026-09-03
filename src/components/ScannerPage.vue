@@ -217,6 +217,16 @@
       :result="activeScanResult"
       @close="handleModalClose"
       @search="handleModalSearch"
+      @adjust-occupancy="handleOpenAdjustOccupancy"
+    />
+
+    <!-- Adjust Occupancy Limit Modal -->
+    <AdjustOccupancyModal
+      :is-open="isAdjustOccupancyOpen"
+      :current-capacity="maxCapacity"
+      :current-occupancy="currentOccupancy"
+      @close="isAdjustOccupancyOpen = false"
+      @updated="handleCapacityUpdated"
     />
 
     <!-- Event Day Selector Calendar Modal (No "All Day" Option on Scanner) -->
@@ -236,6 +246,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { apiProcessScan, apiFetchOccupancy, apiResetOccupancy } from '../api/client'
 import RecentScansModal from './RecentScansModal.vue'
 import ScanResultModal from './ScanResultModal.vue'
+import AdjustOccupancyModal from './AdjustOccupancyModal.vue'
 import CalendarModal from './CalendarModal.vue'
 
 const emit = defineEmits(['nav-analytics', 'nav-database', 'logout'])
@@ -254,6 +265,7 @@ const manualTicketInput = ref('')
 const scanFeedback = ref(null)
 const activeScanResult = ref(null)
 const isResultModalOpen = ref(false)
+const isAdjustOccupancyOpen = ref(false)
 const isModalOpen = ref(false)
 const isCalendarOpen = ref(false)
 
@@ -403,10 +415,20 @@ const handleModalClose = () => {
 
 const handleModalSearch = () => {
   isResultModalOpen.value = false
-  const inputEl = document.querySelector('.search-input')
+  const inputEl = document.querySelector('.ticket-input-field')
   if (inputEl) {
     inputEl.focus()
   }
+}
+
+const handleOpenAdjustOccupancy = () => {
+  isResultModalOpen.value = false
+  isAdjustOccupancyOpen.value = true
+}
+
+const handleCapacityUpdated = (newCap) => {
+  if (newCap) maxCapacity.value = newCap
+  loadOccupancyData()
 }
 
 const handleManualSubmit = () => {

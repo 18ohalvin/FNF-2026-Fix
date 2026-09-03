@@ -175,7 +175,49 @@
         </div>
       </div>
 
-      <!-- 6. INVALID TICKET OR WRONG DAY (Figma Node 447:386) -->
+      <!-- 6. VENUE CAPACITY FULL (Max Limit Reached) -->
+      <div
+        v-else-if="modalType === 'VENUE_FULL'"
+        class="result-modal venue-full-modal"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="modal-header">
+          <h2 class="title-stacked text-white">
+            <span>VENUE CAPACITY</span>
+            <span>FULL</span>
+          </h2>
+        </div>
+
+        <div class="guest-details-section">
+          <p class="guest-name text-white">{{ formattedGuestName }}</p>
+          <div class="badge-row border-white">
+            <div class="badge-left bg-gray">
+              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'PUBLIC' }}</span>
+            </div>
+            <div class="badge-right bg-danger-red">
+              <span class="badge-code text-white">CAPACITY {{ currentOccText }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="invalid-msg-section">
+          <p class="invalid-subtext">
+            {{ result?.message || "Venue capacity limit reached. Access is paused until capacity is adjusted or guests check out." }}
+          </p>
+        </div>
+
+        <div class="modal-actions-stacked">
+          <button type="button" class="btn-solid-white" @click="handleAdjustOccupancy">
+            CHANGE OCCUPANCY
+          </button>
+          <button type="button" class="btn-outline-white" @click="handleClose">
+            DISMISS
+          </button>
+        </div>
+      </div>
+
+      <!-- 7. INVALID TICKET OR WRONG DAY (Figma Node 447:386) -->
       <div
         v-else
         class="result-modal invalid-ticket-modal"
@@ -222,7 +264,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'search'])
+const emit = defineEmits(['close', 'search', 'adjust-occupancy'])
 
 const countdown = ref(5)
 let timer = null
@@ -236,6 +278,10 @@ const modalType = computed(() => {
   if (!props.result) return 'INVALID'
 
   const status = props.result.status
+  if (status === 'VENUE_FULL' || status === 'CAPACITY_REACHED') {
+    return 'VENUE_FULL'
+  }
+
   if (status === 'NOT_CHECKED_IN') {
     return 'NOT_CHECKED_IN'
   }
@@ -277,6 +323,12 @@ const checkInTimeText = computed(() => {
   return `${hours}:${mins}`
 })
 
+const currentOccText = computed(() => {
+  const occ = props.result?.currentOccupancy ?? props.result?.liveOccupancy ?? 100
+  const max = props.result?.maxCapacity ?? 100
+  return `${occ}/${max}`
+})
+
 const startTimer = () => {
   clearTimer()
   countdown.value = 5
@@ -305,6 +357,11 @@ const handleClose = () => {
 const handleSearch = () => {
   clearTimer()
   emit('search')
+}
+
+const handleAdjustOccupancy = () => {
+  clearTimer()
+  emit('adjust-occupancy')
 }
 
 watch(
@@ -386,6 +443,11 @@ onUnmounted(() => {
 /* Theme 5: Invalid Ticket / Wrong Day (Figma 447:386) */
 .invalid-ticket-modal {
   background-color: #4a2626;
+}
+
+/* Theme 6: Venue Capacity Full */
+.venue-full-modal {
+  background-color: #7a1515;
 }
 
 /* Typography & Titles */
@@ -524,6 +586,10 @@ onUnmounted(() => {
 
 .bg-warning-yellow {
   background-color: #e6cb67;
+}
+
+.bg-danger-red {
+  background-color: #d32f2f;
 }
 
 .badge-code {
