@@ -72,7 +72,7 @@
             <button
               type="button"
               id="already-registered-select-day-btn"
-              class="modal-close-button primary-btn"
+              class="modal-close-button"
               @click="handleSelectAnotherDay"
             >
               <span class="close-text">
@@ -80,25 +80,16 @@
               </span>
             </button>
 
-            <!-- Secondary Actions: Resend E-Pass & Register New Guest -->
-            <div class="secondary-actions-row">
+            <!-- Secondary Sub-Action: RESEND E-PASS -->
+            <div class="secondary-action-container">
               <button
                 type="button"
                 id="already-registered-resend-btn"
-                class="secondary-action-btn resend-btn"
+                class="secondary-action-btn"
                 :disabled="isSubmitting"
                 @click="handleResend"
               >
-                {{ isSubmitting ? 'Resending...' : 'Resend my E-Pass' }}
-              </button>
-              <span class="action-divider">•</span>
-              <button
-                type="button"
-                id="already-registered-new-guest-btn"
-                class="secondary-action-btn"
-                @click="handleRegisterNew"
-              >
-                Register new Guest
+                {{ isSubmitting ? 'Resending E-Pass...' : 'Resend E-Pass' }}
               </button>
             </div>
           </div>
@@ -387,19 +378,13 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-.secondary-actions-row {
+.secondary-action-container {
   width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  padding: 16px 0 20px 0;
+  padding: 14px 0 16px 0;
   background-color: #f2f2f2;
-}
-
-.action-divider {
-  color: #999999;
-  font-size: 12px;
 }
 
 .secondary-action-btn {
@@ -411,7 +396,7 @@ onUnmounted(() => {
   font-weight: 400;
   text-decoration: underline;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 4px 12px;
   outline: none;
   transition: color 0.15s ease;
 }
