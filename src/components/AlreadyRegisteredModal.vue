@@ -68,28 +68,37 @@
               </div>
             </div>
 
-            <!-- Action Button: RESEND MY E-PASS -->
+            <!-- Primary Action Button: SELECT ANOTHER DAY -->
             <button
               type="button"
-              id="already-registered-resend-btn"
-              class="modal-close-button"
-              :disabled="isSubmitting"
-              @click="handleResend"
+              id="already-registered-select-day-btn"
+              class="modal-close-button primary-btn"
+              @click="handleSelectAnotherDay"
             >
               <span class="close-text">
-                {{ isSubmitting ? 'RESENDING...' : 'RESEND MY E-PASS' }}
+                SELECT ANOTHER DAY
               </span>
             </button>
 
-            <!-- Smaller copy under the action button: Register a new Guest -->
-            <div class="secondary-action-container">
+            <!-- Secondary Actions: Resend E-Pass & Register New Guest -->
+            <div class="secondary-actions-row">
+              <button
+                type="button"
+                id="already-registered-resend-btn"
+                class="secondary-action-btn resend-btn"
+                :disabled="isSubmitting"
+                @click="handleResend"
+              >
+                {{ isSubmitting ? 'Resending...' : 'Resend my E-Pass' }}
+              </button>
+              <span class="action-divider">•</span>
               <button
                 type="button"
                 id="already-registered-new-guest-btn"
                 class="secondary-action-btn"
                 @click="handleRegisterNew"
               >
-                Register a new Guest
+                Register new Guest
               </button>
             </div>
           </div>
@@ -119,7 +128,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'register-new'])
+const emit = defineEmits(['close', 'register-new', 'select-another-day'])
 
 const translateY = ref(0)
 const isSubmitting = ref(false)
@@ -145,6 +154,13 @@ const handleClose = () => {
   if (isSubmitting.value) return
   translateY.value = 0
   isSuccess.value = false
+  emit('close')
+}
+
+const handleSelectAnotherDay = () => {
+  translateY.value = 0
+  isSuccess.value = false
+  emit('select-another-day')
   emit('close')
 }
 
@@ -371,14 +387,19 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* Secondary copy under the action button */
-.secondary-action-container {
+.secondary-actions-row {
   width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 14px 0 16px 0;
+  gap: 8px;
+  padding: 16px 0 20px 0;
   background-color: #f2f2f2;
+}
+
+.action-divider {
+  color: #999999;
+  font-size: 12px;
 }
 
 .secondary-action-btn {
@@ -390,7 +411,7 @@ onUnmounted(() => {
   font-weight: 400;
   text-decoration: underline;
   cursor: pointer;
-  padding: 4px 12px;
+  padding: 4px 6px;
   outline: none;
   transition: color 0.15s ease;
 }

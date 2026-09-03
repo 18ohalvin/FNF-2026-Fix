@@ -90,6 +90,7 @@
     <template v-else-if="currentPage === 'select-dates'">
       <SelectDatesPage
         :user-role="activeUserData?.role || (registrationType === 'public' ? 'PUBLIC ACCESS' : 'VIP GUEST')"
+        :already-booked-dates="existingBookedDates"
         @submit="handleDatesSubmit"
       />
     </template>
@@ -111,6 +112,7 @@
       :message="alreadyRegisteredMsg"
       @close="isAlreadyRegisteredOpen = false"
       @register-new="handleRegisterNewGuest"
+      @select-another-day="handleSelectAnotherDay"
     />
 
     <!-- Toast Notification -->
@@ -159,6 +161,7 @@ const isCheckingDatabase = ref(false)
 const toastMessage = ref('')
 const activeUserData = ref(null)
 const selectedEventDates = ref(['day-1'])
+const existingBookedDates = ref([])
 const intendedAdminPage = ref('scanner')
 
 const isStaffAuthenticated = () => {
@@ -258,6 +261,12 @@ const handleGoHome = () => {
 const handleRegisterNewGuest = () => {
   isAlreadyRegisteredOpen.value = false
   phoneNumber.value = ''
+  existingBookedDates.value = []
+}
+
+const handleSelectAnotherDay = () => {
+  isAlreadyRegisteredOpen.value = false
+  navigateTo('select-dates')
 }
 
 const handlePopState = (event) => {
@@ -384,9 +393,26 @@ const handleCheckNumber = async () => {
     const result = await apiCheckPhone(rawDigits)
     isCheckingDatabase.value = false
 
-    // If phone number is already registered, trigger reminder modal
+    // If phone number is already registered, trigger reminder modal with add-on options
     if (result.alreadyRegistered) {
-      alreadyRegisteredMsg.value = 'This WhatsApp number has already been registered for the event. Each guest is eligible for 1 registration pass only.'
+      const role = result.guest?.role || defaultRole
+      const resv = result.reservation
+      let bookedDates = []
+      if (resv && resv.selected_dates) {
+        try {
+          bookedDates = typeof resv.selected_dates === 'string' ? JSON.parse(resv.selected_dates) : resv.selected_dates
+        } catch (e) {
+          bookedDates = []
+        }
+      }
+      existingBookedDates.value = Array.isArray(bookedDates) ? bookedDates : []
+      activeUserData.value = {
+        ...result.guest,
+        role,
+        accessId: resv?.access_id || result.guest?.access_id || '707',
+        access_id: resv?.access_id || result.guest?.access_id || '707'
+      }
+      alreadyRegisteredMsg.value = 'This WhatsApp number is already registered. Select additional event days or resend your E-Pass.'
       isAlreadyRegisteredOpen.value = true
       return
     }
@@ -475,10 +501,8 @@ const generateShortAccessId = (length = 3) => {
 }
 
 const handleDatesSubmit = async (dates) => {
-  selectedEventDates.value = dates
-
-  // Generate 3-digit unique alphanumeric Access ID (excluding ambiguous 0, O, 1, I, L)
-  const accessId = generateShortAccessId(3)
+  // Preserve existing Access ID if user is adding dates to an existing registration
+  const accessId = activeUserData.value?.access_id || activeUserData.value?.accessId || generateShortAccessId(3)
 
   const phone = activeUserData.value?.phone || phoneNumber.value.replace(/\D/g, '') || '81707909707'
 
@@ -495,19 +519,32 @@ const handleDatesSubmit = async (dates) => {
   
   await apiSaveGuest(guestPayload)
 
-  // STEP 2: THEN create reservation with POST /api/reservations
-  await apiCreateReservation({
+  // STEP 2: THEN create/update reservation with POST /api/reservations
+  const res = await apiCreateReservation({
     phone,
     accessId,
     selectedDates: dates
   })
 
+  const finalAccessId = res?.accessId || accessId
+  let finalDatesArray = dates
+  if (res?.selectedDates) {
+    try {
+      finalDatesArray = typeof res.selectedDates === 'string' ? JSON.parse(res.selectedDates) : res.selectedDates
+    } catch (e) {
+      finalDatesArray = dates
+    }
+  }
+
+  selectedEventDates.value = Array.isArray(finalDatesArray) ? finalDatesArray : dates
+
   // Attach access_id to activeUserData for instant real-time sync
   if (activeUserData.value) {
-    activeUserData.value.access_id = accessId
+    activeUserData.value.access_id = finalAccessId
+    activeUserData.value.accessId = finalAccessId
     activeUserData.value.phone = phone
   } else {
-    activeUserData.value = { ...guestPayload, access_id: accessId }
+    activeUserData.value = { ...guestPayload, access_id: finalAccessId, accessId: finalAccessId }
   }
 
   // Replace history so user cannot navigate back to select-dates from ticket-summary

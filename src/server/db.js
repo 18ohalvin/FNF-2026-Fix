@@ -615,27 +615,47 @@ class DatabaseAdapter {
 
     const guestPhoneKey = existingGuest ? existingGuest.phone : normalizePhoneNumber(phone)
     const id = `res_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
-    const datesJson = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
+
+    // Check for existing reservation to merge dates & preserve accessId
+    const existingResv = await this.getReservationByPhone(guestPhoneKey)
+    let finalAccessId = accessId
+    let finalDates = selectedDates
+
+    if (existingResv) {
+      if (existingResv.access_id && existingResv.access_id !== 'N/A' && !existingResv.access_id.toLowerCase().includes('null')) {
+        finalAccessId = existingResv.access_id
+      }
+      try {
+        const oldDates = typeof existingResv.selected_dates === 'string' ? JSON.parse(existingResv.selected_dates) : (existingResv.selected_dates || [])
+        const newDates = typeof selectedDates === 'string' ? JSON.parse(selectedDates) : (selectedDates || [])
+        const merged = Array.from(new Set([...oldDates, ...newDates]))
+        finalDates = JSON.stringify(merged)
+      } catch (e) {
+        finalDates = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
+      }
+    } else {
+      finalDates = typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates)
+    }
 
     if (this.driverType === 'postgres') {
       await this.pgPool.query(`DELETE FROM ticket_reservations WHERE guest_phone = $1`, [guestPhoneKey])
       await this.pgPool.query(
         `INSERT INTO ticket_reservations (id, guest_phone, access_id, selected_dates) VALUES ($1, $2, $3, $4)`,
-        [id, guestPhoneKey, accessId, datesJson]
+        [id, guestPhoneKey, finalAccessId, finalDates]
       )
     } else if (this.driverType === 'mysql') {
       await this.mysqlPool.query(`DELETE FROM ticket_reservations WHERE guest_phone = ?`, [guestPhoneKey])
       await this.mysqlPool.query(
         `INSERT INTO ticket_reservations (id, guest_phone, access_id, selected_dates) VALUES (?, ?, ?, ?)`,
-        [id, guestPhoneKey, accessId, datesJson]
+        [id, guestPhoneKey, finalAccessId, finalDates]
       )
     } else {
       this.sqliteDb.prepare(`DELETE FROM ticket_reservations WHERE guest_phone = ?`).run(guestPhoneKey)
       this.sqliteDb.prepare(
         `INSERT INTO ticket_reservations (id, guest_phone, access_id, selected_dates) VALUES (?, ?, ?, ?)`
-      ).run(id, guestPhoneKey, accessId, datesJson)
+      ).run(id, guestPhoneKey, finalAccessId, finalDates)
     }
-    return { success: true, reservationId: id, accessId }
+    return { success: true, reservationId: id, accessId: finalAccessId, selectedDates: finalDates }
   }
 
   // --- Scans & Live Occupancy ---

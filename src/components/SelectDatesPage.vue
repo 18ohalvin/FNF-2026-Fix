@@ -22,8 +22,9 @@
             :date="item.date"
             :day="item.day"
             :is-selected="selectedDates.includes(item.id)"
-            :disabled="!isVipGuest"
-            :note="!isVipGuest ? 'VIP Only' : ''"
+            :disabled="isItemDisabled(item)"
+            :is-passed="isPassedDate(item.date)"
+            :note="getItemNote(item)"
             @toggle="toggleDate(item.id)"
           />
         </div>
@@ -43,6 +44,9 @@
             :date="item.date"
             :day="item.day"
             :is-selected="selectedDates.includes(item.id)"
+            :disabled="isItemDisabled(item)"
+            :is-passed="isPassedDate(item.date)"
+            :note="getItemNote(item)"
             @toggle="toggleDate(item.id)"
           />
         </div>
@@ -51,9 +55,9 @@
 
     <!-- Sticky Bottom CTA Button -->
     <CtaButton
-      :active="selectedDates.length > 0"
+      :active="isCtaActive"
       :loading="isSubmitting"
-      label="NEXT"
+      :label="alreadyBookedDates.length > 0 ? 'UPDATE TICKET ACCESS' : 'NEXT'"
       @click="handleSubmit"
     />
   </div>
@@ -68,6 +72,10 @@ const props = defineProps({
   userRole: {
     type: String,
     default: 'VIP GUEST'
+  },
+  alreadyBookedDates: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -94,21 +102,68 @@ const publicDates = [
 const selectedDates = ref([])
 const isSubmitting = ref(false)
 
-onMounted(() => {
-  if (isVipGuest.value) {
-    selectedDates.value = ['day-1']
-  } else {
-    selectedDates.value = ['day-2']
+// Function to check if an event date has passed relative to current date
+const isPassedDate = (dateStr) => {
+  const now = new Date()
+  const todayZero = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const dateObj = new Date(dateStr)
+  if (!isNaN(dateObj.getTime())) {
+    const targetZero = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).getTime()
+    return targetZero < todayZero
   }
+  return false
+}
+
+const getItemNote = (item) => {
+  if (item.id === 'day-1' && !isVipGuest.value) return 'VIP Only'
+  if (isPassedDate(item.date)) return 'PASSED'
+  if (props.alreadyBookedDates.includes(item.id)) return 'BOOKED'
+  return ''
+}
+
+const isItemDisabled = (item) => {
+  if (item.id === 'day-1' && !isVipGuest.value) return true
+  if (props.alreadyBookedDates.includes(item.id)) return true
+  return false
+}
+
+const isCtaActive = computed(() => {
+  if (selectedDates.value.length === 0) return false
+  if (props.alreadyBookedDates.length > 0) {
+    const bookedSet = new Set(props.alreadyBookedDates)
+    return selectedDates.value.some(d => !bookedSet.has(d))
+  }
+  return true
+})
+
+onMounted(() => {
+  const booked = Array.isArray(props.alreadyBookedDates) ? props.alreadyBookedDates : []
+  const initial = new Set(booked)
+
+  if (!isVipGuest.value) {
+    initial.delete('day-1')
+  }
+
+  // If new registration with no bookings yet, select first available non-passed day
+  if (initial.size === 0) {
+    if (isVipGuest.value && !isPassedDate(vipDates[0].date)) {
+      initial.add('day-1')
+    } else {
+      const avail = publicDates.find(d => !isPassedDate(d.date))
+      if (avail) initial.add(avail.id)
+    }
+  }
+
+  selectedDates.value = Array.from(initial)
 })
 
 const toggleDate = (id) => {
-  // Disallow public guests picking day-1
+  // Disallow public guests picking day-1 or changing already booked dates
   if (id === 'day-1' && !isVipGuest.value) return
+  if (props.alreadyBookedDates.includes(id)) return
 
   const index = selectedDates.value.indexOf(id)
   if (index > -1) {
-    // Keep at least 1 date or toggle off
     selectedDates.value.splice(index, 1)
   } else {
     selectedDates.value.push(id)
@@ -116,7 +171,7 @@ const toggleDate = (id) => {
 }
 
 const handleSubmit = () => {
-  if (selectedDates.value.length === 0 || isSubmitting.value) return
+  if (!isCtaActive.value || isSubmitting.value) return
 
   isSubmitting.value = true
   setTimeout(() => {

@@ -2,9 +2,9 @@
   <button
     type="button"
     class="date-option-item"
-    :class="{ 'is-selected': isSelected, 'is-disabled': disabled }"
-    :disabled="disabled"
-    @click="!disabled && emit('toggle')"
+    :class="{ 'is-selected': isSelected, 'is-disabled': disabled, 'is-passed': isPassed }"
+    :disabled="disabled || isPassed"
+    @click="!(disabled || isPassed) && emit('toggle')"
   >
     <div class="date-left-group">
       <!-- Checkmark icon when selected -->
@@ -37,6 +37,10 @@ const props = defineProps({
     default: false
   },
   disabled: {
+    type: Boolean,
+    default: false
+  },
+  isPassed: {
     type: Boolean,
     default: false
   },
@@ -73,9 +77,16 @@ const emit = defineEmits(['toggle'])
 }
 
 .date-option-item.is-disabled {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: not-allowed;
   background-color: #e5e5e5;
+}
+
+.date-option-item.is-passed {
+  opacity: 0.2 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background-color: #e0e0e0;
 }
 
 .date-left-group {
