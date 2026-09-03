@@ -721,21 +721,39 @@ class DatabaseAdapter {
     }
   }
 
-  async getLiveOccupancy() {
+  async getLiveOccupancy(dayStr = '') {
     await this.connect()
     try {
-      if (this.driverType === 'postgres') {
+      const isPg = this.driverType === 'postgres'
+      const isMysql = this.driverType === 'mysql'
+
+      let dayCondition = ''
+      const params = []
+
+      if (dayStr && !dayStr.toLowerCase().includes('all')) {
+        const dayNum = normalizeDayId(dayStr)
+        const dayTag = `day-${dayNum}`
+        if (isPg) {
+          params.push(dayTag, `%${dayTag}%`)
+          dayCondition = `AND (event_day = $1 OR event_day LIKE $2)`
+        } else {
+          params.push(dayTag, `%${dayTag}%`)
+          dayCondition = `AND (event_day = ? OR event_day LIKE ?)`
+        }
+      }
+
+      if (isPg) {
         const res = await this.pgPool.query(`
           SELECT COUNT(*) as count FROM (
             SELECT DISTINCT ON (guest_phone) action, status
             FROM scans
-            WHERE status = 'GRANTED' AND guest_phone IS NOT NULL AND guest_phone != ''
+            WHERE status = 'GRANTED' AND guest_phone IS NOT NULL AND guest_phone != '' ${dayCondition}
             ORDER BY guest_phone, scanned_at DESC
           ) latest
           WHERE latest.action = 'check-in'
-        `)
+        `, params)
         return Math.max(0, parseInt(res.rows[0]?.count || 0, 10))
-      } else if (this.driverType === 'mysql') {
+      } else if (isMysql) {
         const [rows] = await this.mysqlPool.query(`
           SELECT COUNT(*) as count FROM (
             SELECT s.guest_phone
@@ -743,12 +761,12 @@ class DatabaseAdapter {
             INNER JOIN (
               SELECT guest_phone, MAX(scanned_at) as max_time
               FROM scans
-              WHERE status = 'GRANTED' AND guest_phone IS NOT NULL AND guest_phone != ''
+              WHERE status = 'GRANTED' AND guest_phone IS NOT NULL AND guest_phone != '' ${dayCondition}
               GROUP BY guest_phone
             ) latest ON s.guest_phone = latest.guest_phone AND s.scanned_at = latest.max_time
-            WHERE s.action = 'check-in'
+            WHERE s.action = 'check-in' ${dayCondition}
           ) t
-        `)
+        `, [...params, ...params])
         return Math.max(0, parseInt(rows[0]?.count || 0, 10))
       } else {
         const row = this.sqliteDb.prepare(`
@@ -758,12 +776,12 @@ class DatabaseAdapter {
             INNER JOIN (
               SELECT guest_phone, MAX(rowid) as max_rowid
               FROM scans
-              WHERE status = 'GRANTED' AND guest_phone IS NOT NULL AND guest_phone != ''
+              WHERE status = 'GRANTED' AND guest_phone IS NOT NULL AND guest_phone != '' ${dayCondition}
               GROUP BY guest_phone
             ) latest ON s.rowid = latest.max_rowid
-            WHERE s.action = 'check-in'
+            WHERE s.action = 'check-in' ${dayCondition}
           )
-        `).get()
+        `).get(...params, ...params)
         return Math.max(0, row?.count || 0)
       }
     } catch (e) {
@@ -774,32 +792,62 @@ class DatabaseAdapter {
 
   async getOccupancyStats(dayStr = '') {
     await this.connect()
-    const current = await this.getLiveOccupancy()
+
+    let dayParam = dayStr
+    if (!dayParam || dayParam.toLowerCase().includes('all')) {
+      const now = new Date()
+      let gmt7Iso = ''
+      try {
+        const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+        const year = parts.find(p => p.type === 'year')?.value
+        const month = parts.find(p => p.type === 'month')?.value
+        const day = parts.find(p => p.type === 'day')?.value
+        gmt7Iso = `${year}-${month}-${day}`
+      } catch (e) {
+        gmt7Iso = now.toISOString().split('T')[0]
+      }
+      const dayMap = { '2026-09-02': '1', '2026-09-03': '2', '2026-09-04': '3', '2026-09-05': '4', '2026-09-06': '5' }
+      const num = dayMap[gmt7Iso] || '1'
+      dayParam = `day-${num}`
+    }
+
+    const dayNum = normalizeDayId(dayParam)
+    const dayTag = `day-${dayNum}`
+
+    const current = await this.getLiveOccupancy(dayTag)
     let checkedInToday = 0
     let checkedOutToday = 0
     let recentScans = []
 
     if (this.driverType === 'postgres') {
-      const inRes = await this.pgPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED'")
-      const outRes = await this.pgPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-out' AND status = 'GRANTED'")
-      const scansRes = await this.pgPool.query("SELECT * FROM scans ORDER BY scanned_at DESC LIMIT 50")
+      const inRes = await this.pgPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = $1 OR event_day LIKE $2)", [dayTag, `%${dayTag}%`])
+      const outRes = await this.pgPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-out' AND status = 'GRANTED' AND (event_day = $1 OR event_day LIKE $2)", [dayTag, `%${dayTag}%`])
+      const scansRes = await this.pgPool.query("SELECT * FROM scans WHERE (event_day = $1 OR event_day LIKE $2) ORDER BY scanned_at DESC LIMIT 50", [dayTag, `%${dayTag}%`])
       checkedInToday = parseInt(inRes.rows[0]?.count || 0, 10)
       checkedOutToday = parseInt(outRes.rows[0]?.count || 0, 10)
       recentScans = scansRes.rows
     } else if (this.driverType === 'mysql') {
-      const [inRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED'")
-      const [outRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-out' AND status = 'GRANTED'")
-      const [scansRows] = await this.mysqlPool.query("SELECT * FROM scans ORDER BY scanned_at DESC LIMIT 50")
+      const [inRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)", [dayTag, `%${dayTag}%`])
+      const [outRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM scans WHERE action = 'check-out' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)", [dayTag, `%${dayTag}%`])
+      const [scansRows] = await this.mysqlPool.query("SELECT * FROM scans WHERE (event_day = ? OR event_day LIKE ?) ORDER BY scanned_at DESC LIMIT 50", [dayTag, `%${dayTag}%`])
       checkedInToday = parseInt(inRows[0]?.count || 0, 10)
       checkedOutToday = parseInt(outRows[0]?.count || 0, 10)
       recentScans = scansRows
     } else {
-      checkedInToday = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED'").get().count
-      checkedOutToday = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM scans WHERE action = 'check-out' AND status = 'GRANTED'").get().count
-      recentScans = this.sqliteDb.prepare("SELECT * FROM scans ORDER BY rowid DESC LIMIT 50").all()
+      checkedInToday = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)").get(dayTag, `%${dayTag}%`).count
+      checkedOutToday = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM scans WHERE action = 'check-out' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)").get(dayTag, `%${dayTag}%`).count
+      recentScans = this.sqliteDb.prepare("SELECT * FROM scans WHERE (event_day = ? OR event_day LIKE ?) ORDER BY rowid DESC LIMIT 50").all(dayTag, `%${dayTag}%`)
     }
 
     const capacity = await this.getMaxCapacity()
+    const fullDayMap = {
+      '1': 'DAY 1 - WEDNESDAY, 02 SEPTEMBER 2026',
+      '2': 'DAY 2 - THURSDAY, 03 SEPTEMBER 2026',
+      '3': 'DAY 3 - FRIDAY, 04 SEPTEMBER 2026',
+      '4': 'DAY 4 - SATURDAY, 05 SEPTEMBER 2026',
+      '5': 'DAY 5 - SUNDAY, 06 SEPTEMBER 2026'
+    }
+    const fullDayText = fullDayMap[String(dayNum)] || `DAY ${dayNum} - SEPTEMBER 2026`
 
     return {
       current,
@@ -807,7 +855,7 @@ class DatabaseAdapter {
       checkedInToday,
       checkedOutToday,
       recentScans,
-      eventDayText: dayStr || 'DAY 1 - MONDAY, 02 SEPTEMBER 2026'
+      eventDayText: fullDayText
     }
   }
 
@@ -956,17 +1004,28 @@ class DatabaseAdapter {
 
   async getAnalyticsData(dayOrDate = '') {
     await this.connect()
-    const currentOccupancy = await this.getLiveOccupancy()
-    let totalCheckedIn = 0
-    let vipsCheckedIn = 0
-    let failedScans = 0
-    let totalReservations = 0
+    
+    let dayParam = dayOrDate
+    if (!dayParam || dayParam.toLowerCase().includes('all')) {
+      const now = new Date()
+      let gmt7Iso = ''
+      try {
+        const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+        const year = parts.find(p => p.type === 'year')?.value
+        const month = parts.find(p => p.type === 'month')?.value
+        const day = parts.find(p => p.type === 'day')?.value
+        gmt7Iso = `${year}-${month}-${day}`
+      } catch (e) {
+        gmt7Iso = now.toISOString().split('T')[0]
+      }
+      const dayMap = { '2026-09-02': '1', '2026-09-03': '2', '2026-09-04': '3', '2026-09-05': '4', '2026-09-06': '5' }
+      const num = dayMap[gmt7Iso] || '1'
+      dayParam = `day-${num}`
+    }
 
-    const isPg = this.driverType === 'postgres'
-    const isMysql = this.driverType === 'mysql'
-
-    const dayNum = dayOrDate && !dayOrDate.toLowerCase().includes('all') ? normalizeDayId(dayOrDate) : '1'
+    const dayNum = normalizeDayId(dayParam)
     const dayTag = `day-${dayNum}`
+    const currentOccupancy = await this.getLiveOccupancy(dayTag)
 
     const timeSlots = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
     const totalCheckedInSlots = new Array(12).fill(0)
