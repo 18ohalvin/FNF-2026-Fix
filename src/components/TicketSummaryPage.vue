@@ -73,26 +73,35 @@
           </div>
         </div>
 
-        <!-- Row 5: Notice Info -->
-        <div class="ticket-notice-box">
-          <div class="info-icon-holder">
-            <img src="../assets/icon-info.svg" alt="Information" class="info-icon" />
-          </div>
-          <div class="notice-text-content">
-            <p class="notice-heading">DIDN'T RECEIVE THE EMAIL?</p>
-            <p class="notice-body">
-              Download your e-pass manually <button type="button" id="download-epass-manual-btn" class="manual-download-link" :disabled="isDownloading" @click="handleDownloadEPassPdf"><strong><u>here</u></strong></button>.
-            </p>
-          </div>
-        </div>
       </div>
     </main>
 
-    <!-- Sticky Bottom CTA Button: DONE -->
-    <CtaButton
-      :active="true"
-      label="DONE"
-      @click="emit('home')"
+    <!-- Sticky Bottom CTA Area -->
+    <div class="sticky-bottom-area">
+      <CtaButton
+        :active="true"
+        label="DONE"
+        @click="emit('home')"
+      />
+      <div class="didnt-receive-email-wrapper">
+        <button
+          type="button"
+          id="ticket-didnt-receive-email-btn"
+          class="didnt-receive-email-btn"
+          @click="isDownloadModalOpen = true"
+        >
+          Didn't receive the email?
+        </button>
+      </div>
+    </div>
+
+    <!-- Download E-Pass Modal (Global UI Design System) -->
+    <DownloadEPassModal
+      :is-open="isDownloadModalOpen"
+      :is-downloading="isDownloading"
+      @close="isDownloadModalOpen = false"
+      @download="handleDownloadEPassPdf"
+      @open-update-email="isUpdateEmailOpen = true"
     />
 
     <!-- Update Guest Email Modal with Success State & Fail-Safe Checks -->
@@ -112,6 +121,7 @@ import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import CtaButton from './CtaButton.vue'
 import UpdateEmailModal from './UpdateEmailModal.vue'
+import DownloadEPassModal from './DownloadEPassModal.vue'
 import logo707Black from '../assets/logo-707.png'
 import adBannerImg from '../assets/ad-banner.png'
 import { LOGO_707_BASE64, LOGO_707_WHITE_BASE64, AD_BANNER_BASE64, SPONSOR_PROMO_URL } from '../utils/clientAssets'
@@ -142,6 +152,7 @@ const emit = defineEmits(['back', 'home'])
 
 const isDownloading = ref(false)
 const hasDownloaded = ref(false)
+const isDownloadModalOpen = ref(false)
 const isUpdateEmailOpen = ref(false)
 const overrideEmail = ref('')
 
@@ -619,78 +630,42 @@ const handleDownloadEPassPdf = async () => {
   line-height: 14px;
 }
 
-.ticket-notice-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.info-icon-holder {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.info-icon {
-  width: 24px;
-  height: 24px;
-  display: block;
-}
-
-.notice-text-content {
+.sticky-bottom-area {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  line-height: 20px;
-  color: #000000;
+  background-color: #f2f2f2;
+  z-index: 10;
 }
 
-.notice-heading {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  color: #000000;
-  line-height: 20px;
-  text-transform: uppercase;
-  margin: 0;
+.didnt-receive-email-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 14px 0 max(16px, env(safe-area-inset-bottom, 16px)) 0;
+  background-color: #f2f2f2;
 }
 
-.notice-body {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  color: #000000;
-  line-height: 20px;
-  margin: 0;
-}
-
-.update-email-link,
-.manual-download-link {
+.didnt-receive-email-btn {
   background: transparent;
   border: none;
-  padding: 0;
-  margin: 0;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: 700;
-  color: #000000;
+  color: #666666;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
   text-decoration: underline;
   cursor: pointer;
-  display: inline;
-  -webkit-tap-highlight-color: transparent;
+  padding: 4px 12px;
+  outline: none;
+  transition: color 0.15s ease;
 }
 
-.update-email-link:hover,
-.manual-download-link:hover:not(:disabled) {
-  opacity: 0.75;
-}
-
-.manual-download-link:disabled {
-  opacity: 0.5;
-  cursor: wait;
+.didnt-receive-email-btn:hover {
+  color: #000000;
 }
 </style>
