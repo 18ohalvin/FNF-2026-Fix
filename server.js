@@ -119,11 +119,8 @@ function generateShortAccessId(length = 3) {
 
 // Check if booked dates contain the target event day
 function isDayAllowed(bookedDates, targetDay) {
-  if (!bookedDates || (Array.isArray(bookedDates) && bookedDates.length === 0)) {
-    return true
-  }
-  const targetNum = normalizeDayId(targetDay)
-  
+  if (!bookedDates) return true
+
   let datesArr = []
   if (Array.isArray(bookedDates)) {
     datesArr = bookedDates
@@ -136,7 +133,17 @@ function isDayAllowed(bookedDates, targetDay) {
     }
   }
 
-  return datesArr.some(d => normalizeDayId(d) === targetNum)
+  if (datesArr.length === 0) return true
+
+  const targetNum = normalizeDayId(targetDay)
+
+  return datesArr.some(item => {
+    let val = item
+    if (typeof item === 'object' && item !== null) {
+      val = item.id || item.day || item.date || JSON.stringify(item)
+    }
+    return normalizeDayId(val) === targetNum
+  })
 }
 
 // Format booked days for user-friendly messages (e.g. "Day 1, Day 2")
@@ -152,7 +159,16 @@ function formatBookedDays(bookedDates) {
       datesArr = bookedDates.split(',').map(s => s.trim())
     }
   }
-  return datesArr.map(d => `Day ${normalizeDayId(d)}`).join(', ') || 'None'
+
+  const formatted = datesArr.map(item => {
+    let val = item
+    if (typeof item === 'object' && item !== null) {
+      val = item.id || item.day || item.date || JSON.stringify(item)
+    }
+    return `Day ${normalizeDayId(val)}`
+  })
+
+  return Array.from(new Set(formatted)).join(', ') || 'None'
 }
 
 // ----------------------------------------------------
@@ -529,33 +545,43 @@ app.post('/api/scan/validate', requireStaffAuth, async (req, res) => {
     const rawTicket = String(ticketCode).trim()
     const targetDayNum = normalizeDayId(currentDay)
 
-    let accessId = rawTicket
-    let guestPhone = ''
+    let primaryCode = rawTicket
+    let secondaryCode = ''
 
-    if (rawTicket.includes('|')) {
+    if (rawTicket.startsWith('{') && rawTicket.endsWith('}')) {
+      try {
+        const obj = JSON.parse(rawTicket)
+        primaryCode = obj.accessId || obj.access_id || obj.code || obj.phone || rawTicket
+        secondaryCode = obj.phone || ''
+      } catch (e) {}
+    } else if (rawTicket.includes('|')) {
       const parts = rawTicket.split('|')
       if (parts.length >= 2) {
-        guestPhone = parts[0].trim()
-        accessId = parts[1].trim()
+        secondaryCode = parts[0].trim()
+        primaryCode = parts[1].trim()
       }
-    } else if (rawTicket.includes('phone=')) {
+    } else if (rawTicket.includes('phone=') || rawTicket.includes('access=') || rawTicket.includes('code=')) {
       try {
         const urlObj = new URL(rawTicket)
-        const p = urlObj.searchParams.get('phone')
-        const a = urlObj.searchParams.get('access') || urlObj.searchParams.get('id')
-        if (p) guestPhone = p.trim()
-        if (a) accessId = a.trim()
-      } catch (e) {
-        // Not a full URL
-      }
+        primaryCode = urlObj.searchParams.get('access') || urlObj.searchParams.get('id') || urlObj.searchParams.get('code') || primaryCode
+        secondaryCode = urlObj.searchParams.get('phone') || ''
+      } catch (e) {}
     }
 
     const cleanedCode = String(rawTicket).trim()
     
     // Find matching reservation & guest (by Access ID, Phone Number, or Customer Name)
-    let record = await db.getReservationByAccessId(cleanedCode)
+    let record = await db.getReservationByAccessId(primaryCode)
+    if (!record && secondaryCode) {
+      record = await db.getReservationByAccessId(secondaryCode)
+    }
     if (!record) {
-      const guestFound = await db.getGuestByPhoneOrName(cleanedCode)
+      record = await db.getReservationByAccessId(cleanedCode)
+    }
+    if (!record) {
+      const guestFound = (await db.getGuestByPhoneOrName(primaryCode)) ||
+                         (secondaryCode ? await db.getGuestByPhoneOrName(secondaryCode) : null) ||
+                         (await db.getGuestByPhoneOrName(cleanedCode))
       if (guestFound) {
         let resv = await db.getReservationByPhone(guestFound.phone)
         if (!resv || !resv.access_id || resv.access_id === 'N/A') {
@@ -570,8 +596,8 @@ app.post('/api/scan/validate', requireStaffAuth, async (req, res) => {
         }
         record = {
           ...guestFound,
-          access_id: resv?.access_id || cleanedCode,
-          selected_dates: resv?.selected_dates || JSON.stringify(['day-1'])
+          access_id: resv?.access_id || primaryCode,
+          selected_dates: resv?.selected_dates || JSON.stringify(['day-1', 'day-2', 'day-3', 'day-4', 'day-5'])
         }
       }
     }
