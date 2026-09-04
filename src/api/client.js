@@ -218,7 +218,7 @@ export async function apiFetchDashboardStats() {
  */
 export async function apiProcessScan({ ticketCode, mode = 'check-in', currentDay = 'Day 1' }) {
   try {
-    return await fetchStaffApi('/api/scan', {
+    return await fetchStaffApi('/api/scan/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticketCode, mode, currentDay })

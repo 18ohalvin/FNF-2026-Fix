@@ -534,7 +534,7 @@ app.post('/api/admin/fix-access-ids', requireStaffAuth, async (req, res) => {
 })
 
 // 5. Ticket Scan Processing Endpoint (Scanner Page)
-app.post('/api/scan/validate', requireStaffAuth, async (req, res) => {
+app.post(['/api/scan', '/api/scan/validate'], requireStaffAuth, async (req, res) => {
   try {
     const { ticketCode, mode = 'check-in', currentDay = 'Day 1' } = req.body
 
@@ -624,8 +624,8 @@ app.post('/api/scan/validate', requireStaffAuth, async (req, res) => {
     }
 
     const guestName = `${record.salutation || ''} ${record.first_name || ''} ${record.last_name || ''}`.trim() || 'VIP GUEST'
-    accessId = record.access_id || cleanedCode
-    guestPhone = record.phone || record.guest_phone || guestPhone
+    const accessId = record.access_id || cleanedCode
+    const guestPhone = record.phone || record.guest_phone || ''
 
     // --- LOGIC 2: SPECIFIC DAY VALIDATION ---
     const dateValid = isDayAllowed(record.selected_dates, currentDay)
