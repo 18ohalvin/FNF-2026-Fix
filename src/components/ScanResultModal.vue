@@ -217,6 +217,39 @@
         </div>
       </div>
 
+      <!-- 6b. CONNECTION LOST — ticket could NOT be verified (not a rejection) -->
+      <div
+        v-else-if="modalType === 'CONNECTION_LOST'"
+        class="result-modal connection-lost-modal"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="modal-header">
+          <h2 class="title-stacked text-white">
+            <span>CONNECTION</span>
+            <span>PROBLEM</span>
+          </h2>
+        </div>
+
+        <div class="invalid-msg-section">
+          <p class="invalid-subtext">
+            {{ result?.message || 'Could not reach the server. The ticket was NOT verified.' }}
+          </p>
+          <p class="invalid-subtext connection-hint">
+            This is <strong>not</strong> a rejected ticket. Check the internet connection on this device, then scan again.
+          </p>
+        </div>
+
+        <div class="modal-actions-stacked">
+          <button type="button" class="btn-solid-white" @click="handleRetry">
+            TRY AGAIN
+          </button>
+          <button type="button" class="btn-outline-white" @click="handleClose">
+            DISMISS
+          </button>
+        </div>
+      </div>
+
       <!-- 7. INVALID TICKET OR WRONG DAY (Figma Node 447:386) -->
       <div
         v-else
@@ -264,7 +297,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'search', 'adjust-occupancy'])
+const emit = defineEmits(['close', 'search', 'adjust-occupancy', 'retry'])
 
 const countdown = ref(5)
 let timer = null
@@ -280,6 +313,10 @@ const modalType = computed(() => {
   const status = props.result.status
   if (status === 'VENUE_FULL' || status === 'CAPACITY_REACHED') {
     return 'VENUE_FULL'
+  }
+
+  if (status === 'CONNECTION_LOST') {
+    return 'CONNECTION_LOST'
   }
 
   if (status === 'NOT_CHECKED_IN') {
@@ -362,6 +399,11 @@ const handleSearch = () => {
 const handleAdjustOccupancy = () => {
   clearTimer()
   emit('adjust-occupancy')
+}
+
+const handleRetry = () => {
+  clearTimer()
+  emit('retry', props.result?.ticketCode || '')
 }
 
 watch(
@@ -464,6 +506,17 @@ onUnmounted(() => {
 /* Theme 6: Venue Capacity Full */
 .venue-full-modal {
   background-color: #7a1515;
+}
+
+/* Connection problem — deliberately a different colour from the red
+   rejection modals so staff never confuse it with a denied ticket. */
+.connection-lost-modal {
+  background-color: #1f3a5f;
+}
+
+.connection-hint {
+  margin-top: 8px;
+  opacity: 0.85;
 }
 
 /* Typography & Titles */

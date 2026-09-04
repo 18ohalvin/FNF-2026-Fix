@@ -62,13 +62,37 @@ export async function apiStaffLogout() {
 }
 
 /**
+ * Wrap fetch with a hard timeout so a stalled connection (weak venue WiFi)
+ * fails fast and can be retried, instead of hanging the scanner indefinitely.
+ */
+async function fetchWithTimeout(url, options = {}, timeoutMs = 0) {
+  if (!timeoutMs || typeof AbortController === 'undefined') {
+    return fetch(url, options)
+  }
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      const timeoutErr = new Error('Request timed out')
+      timeoutErr.isNetworkError = true
+      throw timeoutErr
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
  * Robust API fetcher with auto-fallback to port 7070 if current origin (e.g. port 80 / dev)
  * lacks a reverse proxy or returns SPA HTML index.
  */
-async function fetchWithApiFallback(urlPath, options = {}) {
+async function fetchWithApiFallback(urlPath, options = {}, timeoutMs = 0) {
   const primaryUrl = API_BASE ? `${API_BASE}${urlPath}` : urlPath
   try {
-    const res = await fetch(primaryUrl, options)
+    const res = await fetchWithTimeout(primaryUrl, options, timeoutMs)
     const contentType = res.headers.get('content-type') || ''
 
     // If web server returned HTML (SPA index) instead of API JSON:
@@ -85,16 +109,26 @@ async function fetchWithApiFallback(urlPath, options = {}) {
     }
     return await res.json()
   } catch (primaryErr) {
-    // Attempt direct connection to Node.js backend port 7070 if running on port 80 / other port
-    if (typeof window !== 'undefined' && window.location.port !== '7070') {
+    // Direct hit to the Node backend port only makes sense over plain HTTP.
+    // On an HTTPS page this is blocked as mixed content, so skip it entirely
+    // rather than burning seconds on a request the browser will never send.
+    const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:'
+    if (typeof window !== 'undefined' && !isHttpsPage && window.location.port !== '7070') {
       try {
         const fallbackUrl = `http://${window.location.hostname}:7070${urlPath}`
-        const res2 = await fetch(fallbackUrl, options)
+        const res2 = await fetchWithTimeout(fallbackUrl, options, timeoutMs)
         const contentType2 = res2.headers.get('content-type') || ''
         if (res2.ok && !contentType2.includes('text/html')) {
           return await res2.json()
         }
       } catch (e) {}
+    }
+
+    // No HTTP status means the request never reached the server (offline,
+    // DNS failure, dropped connection, timeout) — mark it so callers can tell
+    // a connection problem apart from a genuinely rejected ticket.
+    if (primaryErr.status === undefined) {
+      primaryErr.isNetworkError = true
     }
     throw primaryErr
   }
@@ -104,7 +138,7 @@ async function fetchWithApiFallback(urlPath, options = {}) {
  * Same as fetchWithApiFallback, but for staff-only endpoints: attaches the
  * bearer session token and forces a re-login if the session is invalid/expired.
  */
-async function fetchStaffApi(urlPath, options = {}) {
+async function fetchStaffApi(urlPath, options = {}, timeoutMs = 0) {
   try {
     return await fetchWithApiFallback(urlPath, {
       ...options,
@@ -112,7 +146,7 @@ async function fetchStaffApi(urlPath, options = {}) {
         ...(options.headers || {}),
         Authorization: `Bearer ${getStaffToken()}`
       }
-    })
+    }, timeoutMs)
   } catch (err) {
     if (err.status === 401) {
       clearStaffSession()
@@ -217,20 +251,51 @@ export async function apiFetchDashboardStats() {
  * Process entrance or exit scan for a ticket ID or phone
  */
 export async function apiProcessScan({ ticketCode, mode = 'check-in', currentDay = 'Day 1' }) {
-  try {
-    return await fetchStaffApi('/api/scan/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticketCode, mode, currentDay })
-    })
-  } catch (err) {
-    console.error('[API Client] Scan request failed:', err)
+  const SCAN_TIMEOUT_MS = 10000
+  const RETRY_DELAYS_MS = [500, 1200] // 3 attempts total
+
+  let lastErr = null
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fetchStaffApi('/api/scan/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketCode, mode, currentDay })
+      }, SCAN_TIMEOUT_MS)
+    } catch (err) {
+      lastErr = err
+
+      // A real answer from the server (401, 500, ...) is not worth retrying —
+      // only connection failures are, since those are usually a brief blip.
+      if (!err.isNetworkError) break
+
+      const delay = RETRY_DELAYS_MS[attempt]
+      if (delay === undefined) break
+      console.warn(`[API Client] Scan attempt ${attempt + 1} failed, retrying in ${delay}ms:`, err.message)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+
+  console.error('[API Client] Scan request failed:', lastErr)
+
+  // Never report a connection problem as an invalid ticket — door staff must
+  // be able to tell "this guest is not allowed in" apart from "we could not
+  // reach the server, the ticket is unverified".
+  if (lastErr?.isNetworkError) {
     return {
       success: false,
-      status: 'INVALID',
-      message: 'Network or server error processing scan.',
+      status: 'CONNECTION_LOST',
+      message: 'Could not reach the server. The ticket was NOT verified — check the connection and scan again.',
       ticketCode
     }
+  }
+
+  return {
+    success: false,
+    status: 'CONNECTION_LOST',
+    message: lastErr?.data?.error || lastErr?.message || 'Server error processing scan. The ticket was NOT verified.',
+    ticketCode
   }
 }
 

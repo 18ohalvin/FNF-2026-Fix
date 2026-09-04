@@ -938,11 +938,35 @@ app.post('/api/guests/:phone/delete', requireStaffAuth, (req, res) => handleDele
 app.post('/api/guests/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.body.phone, res))
 app.post('/api/guests/bulk-delete', requireStaffAuth, (req, res) => handleBulkDeleteGuests(req.body.phones, res))
 
-// Serve Static Frontend Assets from /dist
-app.use(express.static(distPath))
+// Any request for a missing /assets/ file means the device is running a stale
+// index.html that points at a bundle from a previous deploy. Answering with the
+// SPA fallback would hand back HTML for a .js request and leave the device stuck
+// on the old app, so fail loudly instead and let the no-store index.html below
+// pull the device onto the current build.
+app.use('/assets', (req, res, next) => {
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+  next()
+})
+
+// Serve Static Frontend Assets from /dist.
+// index.html itself must never be cached: it is the manifest that points at the
+// content-hashed bundles, so a stale copy pins a device to an old app version.
+app.use(express.static(distPath, {
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+    }
+  }
+}))
+
+app.use('/assets', (req, res) => {
+  res.status(404).json({ error: 'Asset not found (stale client build)' })
+})
 
 // Single Page Application (SPA) Fallback
 app.use((req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
   res.sendFile(path.join(distPath, 'index.html'))
 })
 

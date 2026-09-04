@@ -258,6 +258,7 @@
       @close="handleModalClose"
       @search="handleModalSearch"
       @adjust-occupancy="handleOpenAdjustOccupancy"
+      @retry="handleModalRetry"
     />
 
     <!-- Adjust Occupancy Limit Modal -->
@@ -440,6 +441,8 @@ const executeScan = async (code) => {
       showFeedback('ALREADY_INSIDE', 'ATTENTION: ALREADY INSIDE', res.message)
     } else if (res.status === 'NOT_CHECKED_IN') {
       showFeedback('NOT_CHECKED_IN', 'ATTENTION: NOT CHECKED IN', res.message)
+    } else if (res.status === 'CONNECTION_LOST') {
+      showFeedback('CONNECTION_LOST', 'CONNECTION PROBLEM — NOT VERIFIED', res.message)
     } else {
       showFeedback('INVALID', 'INVALID TICKET OR WRONG DAY', res.message || 'Access Denied')
     }
@@ -449,17 +452,25 @@ const executeScan = async (code) => {
   } catch (err) {
     isProcessingScan.value = false
     activeScanResult.value = {
-      status: 'INVALID',
-      message: 'Failed to process ticket code',
+      status: 'CONNECTION_LOST',
+      message: 'Failed to process ticket code. The ticket was NOT verified — please scan again.',
       ticketCode: code
     }
     isResultModalOpen.value = true
-    showFeedback('INVALID', 'SCAN ERROR', 'Failed to process ticket code')
+    showFeedback('CONNECTION_LOST', 'SCAN ERROR — NOT VERIFIED', 'Failed to process ticket code')
   }
 }
 
 const handleModalClose = () => {
   isResultModalOpen.value = false
+}
+
+const handleModalRetry = (code) => {
+  isResultModalOpen.value = false
+  const target = code || activeScanResult.value?.ticketCode
+  if (target) {
+    executeScan(target)
+  }
 }
 
 const handleModalSearch = () => {
