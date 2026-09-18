@@ -90,9 +90,9 @@ class DatabaseAdapter {
       })
       await this.initMysqlSchema()
     } else {
-      // SQLite Local Default
+      // SQLite Local Default (Namespaced for 19-20 Sept 2026 Event)
       const Database = (await import('better-sqlite3')).default
-      const defaultDbPath = path.resolve(process.cwd(), 'data', 'database.sqlite')
+      const defaultDbPath = path.resolve(process.cwd(), 'data', 'database_event_2026_09.sqlite')
       const dbPath = process.env.DB_PATH || defaultDbPath
       const dbDir = path.dirname(dbPath)
       if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true })
@@ -252,23 +252,7 @@ class DatabaseAdapter {
   }
 
   async seedInitialData() {
-    const existing = await this.getGuestByPhone('81707909707')
-    if (!existing) {
-      await this.upsertGuest({
-        phone: '81707909707',
-        salutation: 'Mr.',
-        firstName: 'ALVIN',
-        lastName: 'DECOROUS',
-        email: '18ohalvin@gmail.com',
-        instagram: '@ohalvin',
-        role: 'VIP GUEST'
-      })
-      await this.createReservation({
-        phone: '81707909707',
-        accessId: 'G27535',
-        selectedDates: ['day-1', 'day-2']
-      })
-    }
+    // Production event database: Starts clean without artificial guest records.
   }
 
   // --- CRUD: Guests ---

@@ -454,9 +454,16 @@ class MailerService {
       const email = guest?.email
       const guestName = `${guest?.salutation || ''} ${guest?.first_name || ''} ${guest?.last_name || ''}`.trim() || 'Guest'
       const accessId = reservation?.access_id || reservation?.accessId || '707'
-      const role = guest?.role || 'PUBLIC ACCESS'
+      const role = guest?.role || 'GUEST'
       const selectedDates = reservation?.selected_dates || reservation?.selectedDates
       const phone = guest?.phone
+
+      // Push email is currently deactivated as requested, preserving all functions for future activation
+      const isEmailPushActive = process.env.ENABLE_EMAIL_DISPATCH === 'true'
+      if (!isEmailPushActive) {
+        console.log(`[Mailer (Deactivated) ⏸️]: Push email is deactivated. Guest (${guestName}) can download E-Pass directly.`)
+        return { success: true, deactivated: true, note: 'Push email is currently deactivated. Guests can download pass directly.' }
+      }
 
       // Send E-Pass Email
       const sendResult = await this.sendTransactionalPass({

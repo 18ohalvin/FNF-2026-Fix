@@ -117,7 +117,6 @@ const isSlotFull = (slotId) => {
 
 const getItemNote = (slot, dateIso) => {
   if (isPassedSlot(slot, dateIso)) return 'PASSED'
-  if (props.alreadyBookedDates.includes(slot.id)) return 'BOOKED'
   if (isSlotFull(slot.id)) return 'FULL'
   return ''
 }
