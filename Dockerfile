@@ -39,7 +39,7 @@ WORKDIR /app
 # Set Production Environment
 ENV NODE_ENV=production
 ENV PORT=7070
-ENV DB_PATH=/app/data/database.sqlite
+ENV DB_PATH=/app/data/database_event_2026_09.sqlite
 
 # curl for the container HEALTHCHECK probe
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
