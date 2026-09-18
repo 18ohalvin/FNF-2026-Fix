@@ -29,11 +29,11 @@
           />
         </div>
 
-        <!-- Location Info Section (Figma 539:127) -->
+        <!-- Location / Campaign Info Section (Figma 539:127) -->
         <div class="location-info-container">
           <div class="location-text-box">
-            <p class="location-line">La Moda</p>
-            <p class="location-line">Plaza Indonesia</p>
+            <p class="location-line">Beneath</p>
+            <p class="location-line">The Surface</p>
           </div>
         </div>
       </div>
