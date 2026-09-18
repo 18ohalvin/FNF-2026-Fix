@@ -18,7 +18,7 @@
           <!-- Section Header: Date + Subtitle -->
           <div class="section-header">
             <h2 class="section-date">{{ group.date }}</h2>
-            <p class="section-subtitle">{{ group.subtitle }} (Max 2 slots)</p>
+            <p class="section-subtitle">{{ group.subtitle }}</p>
           </div>
 
           <!-- Slots List -->
@@ -62,7 +62,7 @@
 import { ref, computed, onMounted } from 'vue'
 import DateOptionItem from './DateOptionItem.vue'
 import CtaButton from './CtaButton.vue'
-import { EVENT_DATE_GROUPS, EVENT_ARRIVAL_SLOTS, MAX_SLOT_CAPACITY, MAX_SLOTS_PER_DAY } from '../utils/dateHelper'
+import { EVENT_DATE_GROUPS, MAX_SLOT_CAPACITY } from '../utils/dateHelper'
 import { apiGetSlotCapacities } from '../api/client'
 
 const props = defineProps({
@@ -147,21 +147,10 @@ onMounted(async () => {
     console.warn('Failed to load slot capacities:', err)
   }
 
-  // 2. Initialize preselected slots
+  // 2. Only pre-fill slots the guest already has booked (add-on flow) — never
+  // silently auto-pick a default slot. The guest must explicitly tap one.
   const booked = Array.isArray(props.alreadyBookedDates) ? props.alreadyBookedDates : []
-  const initial = new Set(booked)
-
-  // If new registration with no bookings yet, select first available non-passed & non-full slot
-  if (initial.size === 0) {
-    const avail = EVENT_ARRIVAL_SLOTS.find(s => {
-      const grp = dateGroups.find(g => g.slots.some(slot => slot.id === s.id))
-      return grp ? (!isPassedSlot(s, grp.dateIso) && !isSlotFull(s.id)) : true
-    })
-    if (avail) initial.add(avail.id)
-    else initial.add(EVENT_ARRIVAL_SLOTS[0].id)
-  }
-
-  selectedDates.value = Array.from(initial)
+  selectedDates.value = [...booked]
 })
 
 const toggleSlot = (id, groupId) => {
@@ -174,18 +163,15 @@ const toggleSlot = (id, groupId) => {
   const index = selectedDates.value.indexOf(id)
   if (index > -1) {
     selectedDates.value.splice(index, 1)
-  } else {
-    // Quota check: max 2 slots per day
-    const daySlots = dateGroups.find(g => g.id === groupId)?.slots.map(s => s.id) || []
-    const countForThisDay = selectedDates.value.filter(sId => daySlots.includes(sId)).length
-
-    if (countForThisDay >= MAX_SLOTS_PER_DAY) {
-      showWarning(`You can select up to ${MAX_SLOTS_PER_DAY} time slots for this date.`)
-      return
-    }
-
-    selectedDates.value.push(id)
+    return
   }
+
+  // Single-select: a guest picks exactly one arrival slot. Choosing a new
+  // slot replaces any previously chosen (but not already-locked-in-booked)
+  // slot instead of stacking on top of it.
+  const bookedSet = new Set(props.alreadyBookedDates)
+  selectedDates.value = selectedDates.value.filter(d => bookedSet.has(d))
+  selectedDates.value.push(id)
 }
 
 const handleSubmit = () => {
