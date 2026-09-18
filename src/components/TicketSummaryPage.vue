@@ -75,8 +75,8 @@
                   <div class="date-summary-left">
                     <span class="slot-time-text">{{ slot.time }}</span>
                   </div>
-                  <div class="date-summary-right">
-                    <span class="slot-session-title">{{ slot.session || 'PLAYBACK' }}</span>
+                  <div v-if="slot.session || slot.sessionSub" class="date-summary-right">
+                    <span v-if="slot.session" class="slot-session-title">{{ slot.session }}</span>
                     <span v-if="slot.sessionSub" class="slot-session-sub">{{ slot.sessionSub }}</span>
                   </div>
                 </div>
@@ -404,9 +404,9 @@ const handleDownloadEPassPdf = async () => {
           ctx.fillText(slot.session || 'LIVE GUIDED LED', 354, curY + 20)
           ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
           ctx.fillText(slot.sessionSub, 354, curY + 36)
-        } else {
+        } else if (slot.session) {
           ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
-          ctx.fillText(slot.session || 'PLAYBACK', 354, curY + 29)
+          ctx.fillText(slot.session, 354, curY + 29)
         }
 
         curY += 56

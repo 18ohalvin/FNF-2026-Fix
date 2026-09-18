@@ -632,9 +632,8 @@ const handleExportData = async () => {
         if (Array.isArray(slots) && slots.length > 0) {
           return slots.map(s => {
             const d = s.date?.includes('20') || s.id?.startsWith('20sep') ? '20 Sep' : '19 Sep'
-            const session = s.session || 'PLAYBACK'
-            const artist = s.sessionSub ? ` (${s.sessionSub})` : ''
-            return `${d} ${s.time} [${session}${artist}]`
+            const session = s.session ? ` [${s.session}${s.sessionSub ? ` (${s.sessionSub})` : ''}]` : ''
+            return `${d} ${s.time}${session}`
           }).join('; ')
         }
       } catch (e) {}

@@ -76,8 +76,8 @@
                   <div class="pass-slots-list">
                     <div v-for="slot in group.slots" :key="slot.id" class="pass-slot-card">
                       <span class="slot-time">{{ slot.time }}</span>
-                      <div class="slot-session-box">
-                        <span class="slot-session-name">{{ slot.session || 'PLAYBACK' }}</span>
+                      <div v-if="slot.session || slot.sessionSub" class="slot-session-box">
+                        <span v-if="slot.session" class="slot-session-name">{{ slot.session }}</span>
                         <span v-if="slot.sessionSub" class="slot-session-sub">{{ slot.sessionSub }}</span>
                       </div>
                     </div>
@@ -399,9 +399,9 @@ const handleDownloadPdf = async () => {
           ctx.fillText(slot.session || 'LIVE GUIDED LED', 354, curY + 20)
           ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
           ctx.fillText(slot.sessionSub, 354, curY + 36)
-        } else {
+        } else if (slot.session) {
           ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
-          ctx.fillText(slot.session || 'PLAYBACK', 354, curY + 29)
+          ctx.fillText(slot.session, 354, curY + 29)
         }
 
         curY += 56

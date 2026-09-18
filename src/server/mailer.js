@@ -244,10 +244,10 @@ class MailerService {
           doc.text(slot.session || 'LIVE GUIDED LED', 354, curY + 20, { align: 'right' })
           doc.setFontSize(12)
           doc.text(slot.sessionSub, 354, curY + 36, { align: 'right' })
-        } else {
+        } else if (slot.session) {
           doc.setFont('Helvetica', 'normal')
           doc.setFontSize(14)
-          doc.text(slot.session || 'PLAYBACK', 354, curY + 29, { align: 'right' })
+          doc.text(slot.session, 354, curY + 29, { align: 'right' })
         }
 
         curY += 56

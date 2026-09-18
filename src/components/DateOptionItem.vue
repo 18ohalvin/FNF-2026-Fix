@@ -19,8 +19,8 @@
     <!-- Right Group: Note Badge (if any) + Session Detail -->
     <div class="slot-right-group">
       <span v-if="note" class="note-badge" :class="{ 'badge-full': isFull }">{{ note }}</span>
-      <div class="session-block">
-        <p class="session-main">{{ session || day }}</p>
+      <div v-if="session || sessionSub" class="session-block">
+        <p v-if="session" class="session-main">{{ session }}</p>
         <p v-if="sessionSub" class="session-sub">{{ sessionSub }}</p>
       </div>
     </div>
