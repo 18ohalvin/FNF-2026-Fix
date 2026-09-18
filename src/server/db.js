@@ -280,20 +280,20 @@ class DatabaseAdapter {
 
     if (this.driverType === 'postgres') {
       const res = await this.pgPool.query(
-        `SELECT * FROM guests WHERE phone = $1 OR phone = $2 OR phone = $3 OR phone = $4 LIMIT 1`,
-        [phone, raw, `0${norm}`, `62${norm}`]
+        `SELECT * FROM guests WHERE phone = $1 OR phone = $2 OR phone = $3 OR phone = $4 OR phone = $5 LIMIT 1`,
+        [phone, raw, `0${norm}`, `62${norm}`, norm]
       )
       return res.rows[0] || null
     } else if (this.driverType === 'mysql') {
       const [rows] = await this.mysqlPool.query(
-        `SELECT * FROM guests WHERE phone = ? OR phone = ? OR phone = ? OR phone = ? LIMIT 1`,
-        [phone, raw, `0${norm}`, `62${norm}`]
+        `SELECT * FROM guests WHERE phone = ? OR phone = ? OR phone = ? OR phone = ? OR phone = ? LIMIT 1`,
+        [phone, raw, `0${norm}`, `62${norm}`, norm]
       )
       return rows[0] || null
     } else {
       return this.sqliteDb.prepare(
-        `SELECT * FROM guests WHERE phone = ? OR phone = ? OR phone = ? OR phone = ? LIMIT 1`
-      ).get(phone, raw, `0${norm}`, `62${norm}`) || null
+        `SELECT * FROM guests WHERE phone = ? OR phone = ? OR phone = ? OR phone = ? OR phone = ? LIMIT 1`
+      ).get(phone, raw, `0${norm}`, `62${norm}`, norm) || null
     }
   }
 
@@ -459,20 +459,20 @@ class DatabaseAdapter {
 
     if (this.driverType === 'postgres') {
       const res = await this.pgPool.query(
-        `SELECT * FROM ticket_reservations WHERE guest_phone = $1 OR guest_phone = $2 OR guest_phone = $3 LIMIT 1`,
-        [phone, raw, `0${norm}`]
+        `SELECT * FROM ticket_reservations WHERE guest_phone = $1 OR guest_phone = $2 OR guest_phone = $3 OR guest_phone = $4 LIMIT 1`,
+        [phone, raw, `0${norm}`, norm]
       )
       return res.rows[0] || null
     } else if (this.driverType === 'mysql') {
       const [rows] = await this.mysqlPool.query(
-        `SELECT * FROM ticket_reservations WHERE guest_phone = ? OR guest_phone = ? OR guest_phone = ? LIMIT 1`,
-        [phone, raw, `0${norm}`]
+        `SELECT * FROM ticket_reservations WHERE guest_phone = ? OR guest_phone = ? OR guest_phone = ? OR guest_phone = ? LIMIT 1`,
+        [phone, raw, `0${norm}`, norm]
       )
       return rows[0] || null
     } else {
       return this.sqliteDb.prepare(
-        `SELECT * FROM ticket_reservations WHERE guest_phone = ? OR guest_phone = ? OR guest_phone = ? LIMIT 1`
-      ).get(phone, raw, `0${norm}`) || null
+        `SELECT * FROM ticket_reservations WHERE guest_phone = ? OR guest_phone = ? OR guest_phone = ? OR guest_phone = ? LIMIT 1`
+      ).get(phone, raw, `0${norm}`, norm) || null
     }
   }
 
@@ -483,29 +483,29 @@ class DatabaseAdapter {
 
     if (this.driverType === 'postgres') {
       const res = await this.pgPool.query(
-        `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role 
-         FROM ticket_reservations r 
-         LEFT JOIN guests g ON g.phone = r.guest_phone 
-         WHERE LOWER(r.access_id) = LOWER($1) OR r.guest_phone = $1 OR r.guest_phone = $2 OR r.guest_phone = $3 LIMIT 1`,
-        [accessId, raw, `0${norm}`]
+        `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role
+         FROM ticket_reservations r
+         LEFT JOIN guests g ON g.phone = r.guest_phone
+         WHERE LOWER(r.access_id) = LOWER($1) OR r.guest_phone = $1 OR r.guest_phone = $2 OR r.guest_phone = $3 OR r.guest_phone = $4 LIMIT 1`,
+        [accessId, raw, `0${norm}`, norm]
       )
       return res.rows[0] || null
     } else if (this.driverType === 'mysql') {
       const [rows] = await this.mysqlPool.query(
-        `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role 
-         FROM ticket_reservations r 
-         LEFT JOIN guests g ON g.phone = r.guest_phone 
-         WHERE LOWER(r.access_id) = LOWER(?) OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? LIMIT 1`,
-        [accessId, accessId, raw, `0${norm}`]
+        `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role
+         FROM ticket_reservations r
+         LEFT JOIN guests g ON g.phone = r.guest_phone
+         WHERE LOWER(r.access_id) = LOWER(?) OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? LIMIT 1`,
+        [accessId, accessId, raw, `0${norm}`, norm]
       )
       return rows[0] || null
     } else {
       return this.sqliteDb.prepare(
-        `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role 
-         FROM ticket_reservations r 
-         LEFT JOIN guests g ON g.phone = r.guest_phone 
-         WHERE LOWER(r.access_id) = LOWER(?) OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? LIMIT 1`
-      ).get(accessId, accessId, raw, `0${norm}`) || null
+        `SELECT r.*, g.salutation, g.first_name, g.last_name, g.email, g.role
+         FROM ticket_reservations r
+         LEFT JOIN guests g ON g.phone = r.guest_phone
+         WHERE LOWER(r.access_id) = LOWER(?) OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? OR r.guest_phone = ? LIMIT 1`
+      ).get(accessId, accessId, raw, `0${norm}`, norm) || null
     }
   }
   async autoFixMissingAccessIds() {
@@ -571,44 +571,44 @@ class DatabaseAdapter {
 
     if (this.driverType === 'postgres') {
       const res = await this.pgPool.query(
-        `SELECT g.*, 
+        `SELECT g.*,
           (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as access_id,
           (SELECT r.selected_dates FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as selected_dates
-         FROM guests g 
-         WHERE g.phone = $1 OR g.phone = $2 OR g.phone = $3 
-            OR LOWER(g.first_name) LIKE $4 OR LOWER(g.last_name) LIKE $4
-            OR LOWER(CONCAT(g.first_name, ' ', g.last_name)) LIKE $4
-            OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE $4
+         FROM guests g
+         WHERE g.phone = $1 OR g.phone = $2 OR g.phone = $3 OR g.phone = $4
+            OR LOWER(g.first_name) LIKE $5 OR LOWER(g.last_name) LIKE $5
+            OR LOWER(CONCAT(g.first_name, ' ', g.last_name)) LIKE $5
+            OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE $5
          ORDER BY g.created_at DESC LIMIT 1`,
-        [cleaned, raw, `0${norm}`, pattern]
+        [cleaned, raw, `0${norm}`, norm, pattern]
       )
       return res.rows[0] || null
     } else if (this.driverType === 'mysql') {
       const [rows] = await this.mysqlPool.query(
-        `SELECT g.*, 
+        `SELECT g.*,
           (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as access_id,
           (SELECT r.selected_dates FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as selected_dates
-         FROM guests g 
-         WHERE g.phone = ? OR g.phone = ? OR g.phone = ? 
+         FROM guests g
+         WHERE g.phone = ? OR g.phone = ? OR g.phone = ? OR g.phone = ?
             OR LOWER(g.first_name) LIKE ? OR LOWER(g.last_name) LIKE ?
             OR LOWER(CONCAT(g.first_name, ' ', g.last_name)) LIKE ?
             OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE ?
          ORDER BY g.created_at DESC LIMIT 1`,
-        [cleaned, raw, `0${norm}`, pattern, pattern, pattern, pattern]
+        [cleaned, raw, `0${norm}`, norm, pattern, pattern, pattern, pattern]
       )
       return rows[0] || null
     } else {
       return this.sqliteDb.prepare(
-        `SELECT g.*, 
+        `SELECT g.*,
           (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as access_id,
           (SELECT r.selected_dates FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) as selected_dates
-         FROM guests g 
-         WHERE g.phone = ? OR g.phone = ? OR g.phone = ? 
+         FROM guests g
+         WHERE g.phone = ? OR g.phone = ? OR g.phone = ? OR g.phone = ?
             OR LOWER(g.first_name) LIKE ? OR LOWER(g.last_name) LIKE ?
             OR LOWER(g.first_name || ' ' || g.last_name) LIKE ?
             OR (SELECT r.access_id FROM ticket_reservations r WHERE r.guest_phone = g.phone LIMIT 1) LIKE ?
          ORDER BY g.created_at DESC LIMIT 1`
-      ).get(cleaned, raw, `0${norm}`, pattern, pattern, pattern, pattern) || null
+      ).get(cleaned, raw, `0${norm}`, norm, pattern, pattern, pattern, pattern) || null
     }
   }
 
