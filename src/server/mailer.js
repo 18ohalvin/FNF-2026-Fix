@@ -44,10 +44,10 @@ class MailerService {
     }
 
     if (Array.isArray(selectedDates)) {
-      return selectedDates.map(d => {
-        const str = typeof d === 'string' ? d : `${d.date || ''} ${d.timeSlot || d.time || ''}`.trim()
-        return str
-      }).join('<br>')
+      // Reservations store raw slot IDs (e.g. "19sep-1730") — resolve them to
+      // human-readable date/time before showing in the email, same as the PDF does.
+      const resolved = resolveArrivalSlots(selectedDates)
+      return resolved.map(slot => `${slot.date || ''} · ${slot.time || ''}`.trim()).join('<br>')
     }
 
     if (typeof selectedDates === 'object') {

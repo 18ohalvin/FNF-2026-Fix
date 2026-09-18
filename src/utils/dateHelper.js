@@ -9,21 +9,14 @@ export const MAX_SLOTS_PER_DAY = 2
 
 export const EVENT_ARRIVAL_SLOTS = [
   // ----------------------------------------------------
-  // 19 September 2026 (Saturday)
+  // 19 September 2026 (Saturday) — entry opens 17:00 (5 PM)
   // ----------------------------------------------------
-  { id: '19sep-1030', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '10:30 - 11:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1100', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '11:00 - 11:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1130', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '11:30 - 12:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1200', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '12:00 - 12:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1230', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '12:30 - 13:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1300', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '13:00 - 13:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1330', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '13:30 - 14:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1400', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '14:00 - 14:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1430', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '14:30 - 15:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1500', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '15:00 - 15:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1530', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '15:30 - 16:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1600', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '16:00 - 16:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1630', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '16:30 - 17:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
+  { id: '19sep-1700', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '17:00 - 17:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
+  { id: '19sep-1730', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '17:30 - 18:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
+  { id: '19sep-1800', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '18:00 - 18:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
+  { id: '19sep-1830', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '18:30 - 19:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
+  { id: '19sep-1900', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '19:00 - 19:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
+  { id: '19sep-1930', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '19:30 - 20:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
   { id: '19sep-2000', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '20:00 - 20:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
   { id: '19sep-2030', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '20:30 - 21:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
   { id: '19sep-2100', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '21:00 - 21:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
@@ -96,13 +89,17 @@ export function getSlotById(id) {
   })
   if (timeMatch) return timeMatch
 
-  // Legacy mappings
-  if (cleaned === 'day1' || cleaned === '1') return EVENT_ARRIVAL_SLOTS[0]
-  if (cleaned === 'day2' || cleaned === '2') return EVENT_ARRIVAL_SLOTS[17]
+  // Legacy mappings — resolved by dateId, not a fixed array index, so the
+  // count of slots per day can change without silently pointing at the
+  // wrong day's slot.
+  const firstOfDay1 = EVENT_ARRIVAL_SLOTS.find(s => s.dateId === '19-sep')
+  const firstOfDay2 = EVENT_ARRIVAL_SLOTS.find(s => s.dateId === '20-sep')
+  if (cleaned === 'day1' || cleaned === '1') return firstOfDay1
+  if (cleaned === 'day2' || cleaned === '2') return firstOfDay2
 
   // Fallback by date
-  if (isDay2) return EVENT_ARRIVAL_SLOTS[17]
-  if (isDay1) return EVENT_ARRIVAL_SLOTS[0]
+  if (isDay2) return firstOfDay2
+  if (isDay1) return firstOfDay1
 
   return null
 }

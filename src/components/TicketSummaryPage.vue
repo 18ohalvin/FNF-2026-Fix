@@ -160,7 +160,7 @@ const resolvedSelectedDates = computed(() => {
     ? props.selectedDates
     : (Array.isArray(props.selectedDateIds) && props.selectedDateIds.length > 0)
       ? props.selectedDateIds
-      : (props.userDetails?.selectedDates || props.userDetails?.selected_dates || ['19sep-1030'])
+      : (props.userDetails?.selectedDates || props.userDetails?.selected_dates || ['19sep-1700'])
 
   return resolveArrivalSlots(rawDates)
 })

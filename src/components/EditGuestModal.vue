@@ -159,7 +159,7 @@ const form = reactive({
 })
 
 const parseDatesSafely = (datesInput) => {
-  if (!datesInput) return ['19sep-1030']
+  if (!datesInput) return ['19sep-1700']
   if (Array.isArray(datesInput)) return datesInput
   if (typeof datesInput === 'string') {
     const trimmed = datesInput.trim()
@@ -172,7 +172,7 @@ const parseDatesSafely = (datesInput) => {
     const split = trimmed.split(',').map(s => s.trim()).filter(Boolean)
     if (split.length > 0) return split
   }
-  return ['19sep-1030']
+  return ['19sep-1700']
 }
 
 watch(
