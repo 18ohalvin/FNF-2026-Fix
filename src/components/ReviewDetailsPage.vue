@@ -5,15 +5,15 @@
       <!-- Title Row -->
       <div class="title-row">
         <h1 class="page-title">{{ isRegistered ? 'REVIEW DETAILS' : 'REGISTER' }}</h1>
-        <span class="user-role-badge">{{ userDetails.role || 'VIP GUEST' }}</span>
+        <span class="user-role-badge">GUEST</span>
       </div>
 
       <!-- Description Subtitle -->
       <p class="instruction-text">
         {{
           isRegistered
-            ? `Please confirm your information below to receive and download your ${isVipGuest ? 'VIP ' : ''}e-pass.`
-            : `Enter your details below to generate and download your ${isVipGuest ? 'VIP ' : ''}e-pass.`
+            ? 'Please confirm your information below to receive and download your e-pass.'
+            : 'Enter your details below to generate and download your e-pass.'
         }}
       </p>
 
@@ -115,7 +115,7 @@ const props = defineProps({
       firstName: '',
       lastName: '',
       email: '',
-      role: 'VIP GUEST'
+      role: 'GUEST'
     })
   }
 })

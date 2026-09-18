@@ -2,35 +2,53 @@
   <button
     type="button"
     class="date-option-item"
-    :class="{ 'is-selected': isSelected, 'is-disabled': disabled, 'is-passed': isPassed }"
-    :disabled="disabled || isPassed"
-    @click="!(disabled || isPassed) && emit('toggle')"
+    :class="{ 'is-selected': isSelected, 'is-disabled': disabled || isFull, 'is-passed': isPassed, 'is-full': isFull }"
+    :disabled="disabled || isPassed || isFull"
+    @click="!(disabled || isPassed || isFull) && emit('toggle')"
   >
-    <div class="date-left-group">
-      <!-- Checkmark icon when selected -->
+    <!-- Left Group: Checkmark (if selected) + Time Label -->
+    <div class="slot-left-group">
       <div v-if="isSelected" class="check-icon-wrapper">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20.2929 5.29289C20.6834 5.68342 20.6834 6.31658 20.2929 6.70711L9.70711 17.2929C9.31658 17.6834 8.68342 17.6834 8.29289 17.2929L3.70711 12.7071C3.31658 12.3166 3.31658 11.6834 3.70711 11.2929C4.09763 10.9024 4.7308 10.9024 5.12132 11.2929L9 15.1716L18.8787 5.29289C19.2692 4.90237 19.9024 4.90237 20.2929 5.29289Z" fill="black"/>
+          <path d="M20.2929 5.29289C20.6834 5.68342 20.6834 6.31658 20.2929 6.70711L9.70711 17.2929C9.31658 17.6834 8.68342 17.6834 8.29289 17.2929L3.70711 12.7071C3.31658 12.3166 3.31658 11.6834 3.70711 11.2929C4.09763 10.9024 4.7308 10.9024 5.12132 11.2929L9 15.1716L18.8787 5.29289C19.2692 4.90237 19.9024 4.90237 20.2929 5.29289Z" fill="currentColor"/>
         </svg>
       </div>
-      <span class="date-label">{{ date }}</span>
+      <span class="time-label">{{ time || date }}</span>
     </div>
-    <div class="day-right-group">
-      <span v-if="note" class="note-badge">{{ note }}</span>
-      <span class="day-label">{{ day }}</span>
+
+    <!-- Right Group: Note Badge (if any) + Session Detail -->
+    <div class="slot-right-group">
+      <span v-if="note" class="note-badge" :class="{ 'badge-full': isFull }">{{ note }}</span>
+      <div class="session-block">
+        <p class="session-main">{{ session || day }}</p>
+        <p v-if="sessionSub" class="session-sub">{{ sessionSub }}</p>
+      </div>
     </div>
   </button>
 </template>
 
 <script setup>
 const props = defineProps({
+  time: {
+    type: String,
+    default: ''
+  },
+  session: {
+    type: String,
+    default: ''
+  },
+  sessionSub: {
+    type: String,
+    default: ''
+  },
+  // Legacy prop fallbacks
   date: {
     type: String,
-    required: true
+    default: ''
   },
   day: {
     type: String,
-    required: true
+    default: ''
   },
   isSelected: {
     type: Boolean,
@@ -41,6 +59,10 @@ const props = defineProps({
     default: false
   },
   isPassed: {
+    type: Boolean,
+    default: false
+  },
+  isFull: {
     type: Boolean,
     default: false
   },
@@ -56,13 +78,13 @@ const emit = defineEmits(['toggle'])
 <style scoped>
 .date-option-item {
   width: 100%;
-  height: 48px;
+  min-height: 48px;
   background-color: #ededed;
-  border: none;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 8px 24px;
   cursor: pointer;
   outline: none;
   box-sizing: border-box;
@@ -73,13 +95,21 @@ const emit = defineEmits(['toggle'])
 }
 
 .date-option-item.is-selected {
-  border: 1px solid #000000;
+  border-color: #000000;
+  background-color: #e2e2e2;
 }
 
 .date-option-item.is-disabled {
   opacity: 0.55;
   cursor: not-allowed;
   background-color: #e5e5e5;
+}
+
+.date-option-item.is-full {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background-color: #e4e4e4;
 }
 
 .date-option-item.is-passed {
@@ -89,16 +119,38 @@ const emit = defineEmits(['toggle'])
   background-color: #e0e0e0;
 }
 
-.date-left-group {
+.slot-left-group {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-.day-right-group {
+.check-icon-wrapper {
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #000000;
+}
+
+.time-label {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #000000;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.slot-right-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  text-align: right;
 }
 
 .note-badge {
@@ -113,28 +165,31 @@ const emit = defineEmits(['toggle'])
   border-radius: 2px;
 }
 
-.check-icon-wrapper {
-  width: 16px;
-  height: 16px;
+.session-block {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   justify-content: center;
-  flex-shrink: 0;
 }
 
-.date-label {
+.session-main {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-weight: 400;
   color: #000000;
-  line-height: 14px;
+  line-height: 16px;
+  margin: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.day-label {
+.session-sub {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 400;
   color: #000000;
-  line-height: 14px;
+  line-height: 16px;
+  margin: 0;
+  white-space: nowrap;
 }
 </style>

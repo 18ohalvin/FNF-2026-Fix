@@ -67,7 +67,7 @@
                     {{ item.action === 'check-in' ? 'IN' : 'OUT' }}
                   </span>
                   <div class="scan-details">
-                    <div class="guest-name">{{ item.guest_name || 'VIP Guest' }}</div>
+                    <div class="guest-name">{{ item.guest_name || 'Guest' }}</div>
                     <div class="access-code">Ticket / Access ID: {{ item.access_id || item.guest_phone || 'N/A' }}</div>
                   </div>
                 </div>

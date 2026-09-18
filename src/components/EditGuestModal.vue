@@ -41,8 +41,7 @@
             <div class="form-group">
               <label class="field-label">Guest Role</label>
               <select v-model="form.role" class="form-select">
-                <option value="VIP GUEST">VIP GUEST</option>
-                <option value="PUBLIC">PUBLIC</option>
+                <option value="GUEST">GUEST</option>
               </select>
             </div>
             <div class="form-group">
@@ -72,24 +71,43 @@
             <input v-model="form.accessId" type="text" class="form-input" placeholder="e.g. 0102-1108-1245" />
           </div>
 
-          <!-- Booked Event Days Selector -->
+          <!-- Booked Event Slots Selector -->
           <div class="form-group">
-            <label class="field-label">Booked Event Days</label>
-            <div class="days-checkbox-group">
-              <label
-                v-for="day in eventDays"
-                :key="day.id"
-                class="day-check-item"
-                :class="{ active: form.selectedDates.includes(day.id) }"
-              >
-                <input
-                  type="checkbox"
-                  :value="day.id"
-                  v-model="form.selectedDates"
-                  class="hidden-check"
-                />
-                <span class="day-badge-text">{{ day.label }}</span>
-              </label>
+            <div class="field-label-row">
+              <label class="field-label">Booked Arrival / Session Slots</label>
+              <span class="slot-count-badge">{{ form.selectedDates.length }} selected</span>
+            </div>
+            <div class="slots-container">
+              <div v-for="group in dateGroups" :key="group.id" class="date-slot-group">
+                <div class="date-group-header">
+                  <span class="group-title">{{ group.date }}</span>
+                  <span class="group-meta">{{ group.slots.length }} SLOTS AVAILABLE</span>
+                </div>
+                <div class="slot-grid">
+                  <label
+                    v-for="slot in group.slots"
+                    :key="slot.id"
+                    class="slot-check-card"
+                    :class="{ 
+                      active: form.selectedDates.includes(slot.id),
+                      'is-live': slot.session.includes('LIVE')
+                    }"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="slot.id"
+                      v-model="form.selectedDates"
+                      class="hidden-check"
+                    />
+                    <div class="slot-card-body">
+                      <div class="slot-time-text">{{ slot.time }}</div>
+                      <div class="slot-tag" :class="slot.session.includes('LIVE') ? 'tag-live' : 'tag-playback'">
+                        {{ slot.session }}{{ slot.sessionSub ? ` • ${slot.sessionSub}` : '' }}
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -111,6 +129,7 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { apiUpdateGuest } from '../api/client'
+import { EVENT_DATE_GROUPS, EVENT_ARRIVAL_SLOTS } from '../utils/dateHelper'
 
 const props = defineProps({
   isOpen: {
@@ -126,28 +145,21 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const isSaving = ref(false)
-
-const eventDays = [
-  { id: 'day-1', label: 'Day 1' },
-  { id: 'day-2', label: 'Day 2' },
-  { id: 'day-3', label: 'Day 3' },
-  { id: 'day-4', label: 'Day 4' },
-  { id: 'day-5', label: 'Day 5' }
-]
+const dateGroups = EVENT_DATE_GROUPS
 
 const form = reactive({
   salutation: 'Mr.',
   firstName: '',
   lastName: '',
   email: '',
-  role: 'VIP GUEST',
+  role: 'GUEST',
   accessId: '',
   isCheckedIn: 0,
   selectedDates: []
 })
 
 const parseDatesSafely = (datesInput) => {
-  if (!datesInput) return ['day-1']
+  if (!datesInput) return ['19sep-1030']
   if (Array.isArray(datesInput)) return datesInput
   if (typeof datesInput === 'string') {
     const trimmed = datesInput.trim()
@@ -160,7 +172,7 @@ const parseDatesSafely = (datesInput) => {
     const split = trimmed.split(',').map(s => s.trim()).filter(Boolean)
     if (split.length > 0) return split
   }
-  return ['day-1']
+  return ['19sep-1030']
 }
 
 watch(
@@ -171,7 +183,7 @@ watch(
       form.firstName = g.first_name || g.firstName || ''
       form.lastName = g.last_name || g.lastName || ''
       form.email = g.email || ''
-      form.role = (g.role || '').toUpperCase().includes('VIP') ? 'VIP GUEST' : 'PUBLIC'
+      form.role = 'GUEST'
       form.accessId = g.access_id || ''
       form.isCheckedIn = g.is_checked_in ? 1 : 0
       form.selectedDates = parseDatesSafely(g.selected_dates)
@@ -336,37 +348,132 @@ const handleSubmit = async () => {
   cursor: not-allowed;
 }
 
-.days-checkbox-group {
+.field-label-row {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.day-check-item {
-  flex: 1;
-  min-width: 70px;
-  height: 38px;
-  border: 1px solid #cccccc;
-  border-radius: 4px;
+.slot-count-badge {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #333333;
+}
+
+.slots-container {
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.date-slot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.date-group-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.group-title {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: #111111;
+  letter-spacing: 0.5px;
+}
+
+.group-meta {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: #888888;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px;
+}
+
+.slot-check-card {
+  display: block;
+  border: 1px solid #dddddd;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 6px 8px;
   cursor: pointer;
-  background: #f9f9f9;
   user-select: none;
   transition: all 0.15s ease;
 }
 
-.day-check-item.active {
+.slot-check-card:hover {
+  border-color: #999999;
+}
+
+.slot-check-card.active {
   background: #000000;
-  color: #ffffff;
   border-color: #000000;
 }
 
-.day-badge-text {
+.slot-check-card.is-live {
+  border-left: 3px solid #ff5500;
+}
+
+.slot-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slot-time-text {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
+  color: #111111;
+}
+
+.slot-check-card.active .slot-time-text {
+  color: #ffffff;
+}
+
+.slot-tag {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tag-playback {
+  color: #777777;
+}
+
+.slot-check-card.active .tag-playback {
+  color: #cccccc;
+}
+
+.tag-live {
+  color: #ff5500;
+  font-weight: 700;
+}
+
+.slot-check-card.active .tag-live {
+  color: #ff9966;
 }
 
 .hidden-check {

@@ -4,13 +4,14 @@
       type="button"
       id="submit-cta-btn"
       class="cta-button"
-      :class="{ 'is-active': active, 'is-loading': loading }"
+      :class="{ 'is-active': active, 'is-loading': loading, 'is-uppercase': uppercase }"
       :disabled="!active || loading"
       @click="handleClick"
     >
       <span v-if="!loading" class="cta-text">{{ label }}</span>
       <span v-else class="cta-spinner" aria-label="Loading"></span>
     </button>
+    <slot name="after"></slot>
   </div>
 </template>
 
@@ -25,6 +26,10 @@ const props = defineProps({
     default: false
   },
   loading: {
+    type: Boolean,
+    default: false
+  },
+  uppercase: {
     type: Boolean,
     default: false
   }
@@ -60,15 +65,18 @@ const handleClick = () => {
   background-color: var(--btn-disabled-bg);
   color: var(--btn-disabled-text);
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: not-allowed;
   user-select: none;
+}
+
+.cta-button.is-uppercase {
+  text-transform: uppercase;
 }
 
 .cta-button.is-active {

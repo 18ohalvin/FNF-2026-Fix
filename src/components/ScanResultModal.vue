@@ -1,9 +1,9 @@
 <template>
   <Transition name="modal-fade">
     <div v-if="isOpen && result" class="modal-backdrop" @click.self="handleClose">
-      <!-- 1. VALID TICKET - REGULAR GUEST (Figma Node 427:359) -->
+      <!-- 1. VALID TICKET - GUEST (Figma Node 427:359 & 447:347) -->
       <div
-        v-if="modalType === 'VALID_REGULAR'"
+        v-if="modalType === 'VALID_GUEST' || modalType === 'VALID_REGULAR' || modalType === 'VALID_VIP'"
         class="result-modal valid-regular-modal"
         role="dialog"
         aria-modal="true"
@@ -15,13 +15,16 @@
         <div class="guest-details-section">
           <p class="guest-name text-black">{{ formattedGuestName }}</p>
           <div class="badge-row border-black">
-            <div class="badge-left bg-gray">
-              <span class="badge-role text-black">PUBLIC</span>
+            <div class="badge-left bg-black">
+              <span class="badge-role text-white">GUEST</span>
             </div>
             <div class="badge-right bg-white">
               <span class="badge-code text-black">{{ displayAccessId }}</span>
             </div>
           </div>
+          <p v-if="bookedSessionsSummary" class="sessions-text">
+            {{ bookedSessionsSummary }}
+          </p>
         </div>
 
         <div class="modal-actions">
@@ -35,41 +38,7 @@
         </p>
       </div>
 
-      <!-- 2. VALID TICKET - VIP GUEST (Figma Node 447:347) -->
-      <div
-        v-else-if="modalType === 'VALID_VIP'"
-        class="result-modal valid-vip-modal"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div class="modal-header">
-          <h2 class="title-white">VALID TICKET</h2>
-        </div>
-
-        <div class="guest-details-section">
-          <p class="guest-name text-white">{{ formattedGuestName }}</p>
-          <div class="badge-row border-white">
-            <div class="badge-left bg-gray">
-              <span class="badge-role text-black">VIP GUEST</span>
-            </div>
-            <div class="badge-right bg-transparent">
-              <span class="badge-code text-white">{{ displayAccessId }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn-solid-white" @click="handleClose">
-            Next Scan
-          </button>
-        </div>
-
-        <p class="timer-text text-white">
-          Auto close in {{ countdown }} seconds
-        </p>
-      </div>
-
-      <!-- 3. ALREADY CHECKED IN (Figma Node 447:369) -->
+      <!-- 2. ALREADY CHECKED IN (Figma Node 447:369) -->
       <div
         v-else-if="modalType === 'ALREADY_CHECKED_IN'"
         class="result-modal already-checked-modal"
@@ -86,8 +55,8 @@
         <div class="guest-details-section">
           <p class="guest-name text-black">{{ formattedGuestName }}</p>
           <div class="badge-row border-black">
-            <div class="badge-left bg-gray">
-              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'PUBLIC' }}</span>
+            <div class="badge-left bg-black">
+              <span class="badge-role text-white">GUEST</span>
             </div>
             <div class="badge-right bg-tan">
               <span class="badge-code text-black">CHECKED IN at {{ checkInTimeText }}</span>
@@ -102,7 +71,7 @@
         </div>
       </div>
 
-      <!-- 4. CHECKED OUT SUCCESS (Exit Scan Mode) -->
+      <!-- 3. CHECKED OUT SUCCESS (Exit Scan Mode) -->
       <div
         v-else-if="modalType === 'CHECKED_OUT'"
         class="result-modal valid-regular-modal"
@@ -116,8 +85,8 @@
         <div class="guest-details-section">
           <p class="guest-name text-black">{{ formattedGuestName }}</p>
           <div class="badge-row border-black">
-            <div class="badge-left bg-gray">
-              <span class="badge-role text-black">{{ isVip ? 'VIP GUEST' : 'PUBLIC' }}</span>
+            <div class="badge-left bg-black">
+              <span class="badge-role text-white">GUEST</span>
             </div>
             <div class="badge-right bg-white">
               <span class="badge-code text-black">EXIT at {{ checkInTimeText }}</span>
@@ -217,39 +186,6 @@
         </div>
       </div>
 
-      <!-- 6b. CONNECTION LOST — ticket could NOT be verified (not a rejection) -->
-      <div
-        v-else-if="modalType === 'CONNECTION_LOST'"
-        class="result-modal connection-lost-modal"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div class="modal-header">
-          <h2 class="title-stacked text-white">
-            <span>CONNECTION</span>
-            <span>PROBLEM</span>
-          </h2>
-        </div>
-
-        <div class="invalid-msg-section">
-          <p class="invalid-subtext">
-            {{ result?.message || 'Could not reach the server. The ticket was NOT verified.' }}
-          </p>
-          <p class="invalid-subtext connection-hint">
-            This is <strong>not</strong> a rejected ticket. Check the internet connection on this device, then scan again.
-          </p>
-        </div>
-
-        <div class="modal-actions-stacked">
-          <button type="button" class="btn-solid-white" @click="handleRetry">
-            TRY AGAIN
-          </button>
-          <button type="button" class="btn-outline-white" @click="handleClose">
-            DISMISS
-          </button>
-        </div>
-      </div>
-
       <!-- 7. INVALID TICKET OR WRONG DAY (Figma Node 447:386) -->
       <div
         v-else
@@ -297,7 +233,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'search', 'adjust-occupancy', 'retry'])
+const emit = defineEmits(['close', 'search', 'adjust-occupancy'])
 
 const countdown = ref(5)
 let timer = null
@@ -313,10 +249,6 @@ const modalType = computed(() => {
   const status = props.result.status
   if (status === 'VENUE_FULL' || status === 'CAPACITY_REACHED') {
     return 'VENUE_FULL'
-  }
-
-  if (status === 'CONNECTION_LOST') {
-    return 'CONNECTION_LOST'
   }
 
   if (status === 'NOT_CHECKED_IN') {
@@ -366,6 +298,15 @@ const currentOccText = computed(() => {
   return `${occ}/${max}`
 })
 
+const bookedSessionsSummary = computed(() => {
+  const dates = props.result?.guest?.selected_dates || props.result?.guest?.selectedDates || props.result?.selectedDates
+  if (!dates) return ''
+  if (Array.isArray(dates)) {
+    return dates.map(d => typeof d === 'string' ? d : `${d.date || ''} ${d.time || ''}`).join(' • ')
+  }
+  return String(dates)
+})
+
 const startTimer = () => {
   clearTimer()
   countdown.value = 5
@@ -399,11 +340,6 @@ const handleSearch = () => {
 const handleAdjustOccupancy = () => {
   clearTimer()
   emit('adjust-occupancy')
-}
-
-const handleRetry = () => {
-  clearTimer()
-  emit('retry', props.result?.ticketCode || '')
 }
 
 watch(
@@ -508,17 +444,6 @@ onUnmounted(() => {
   background-color: #7a1515;
 }
 
-/* Connection problem — deliberately a different colour from the red
-   rejection modals so staff never confuse it with a denied ticket. */
-.connection-lost-modal {
-  background-color: #1f3a5f;
-}
-
-.connection-hint {
-  margin-top: 8px;
-  opacity: 0.85;
-}
-
 /* Typography & Titles */
 .modal-header {
   width: 100%;
@@ -590,6 +515,15 @@ onUnmounted(() => {
 
 .text-white {
   color: #ffffff;
+}
+
+.sessions-text {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #555555;
+  margin: 4px 0 0 0;
+  line-height: 1.4;
 }
 
 /* Split Badge Row */

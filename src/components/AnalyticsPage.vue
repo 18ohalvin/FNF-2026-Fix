@@ -153,18 +153,18 @@
             <div class="kpi-number">{{ summaryMetrics.upcomingArrivals }}</div>
           </button>
 
-          <!-- Card 3: VIPs CHECKED-IN -->
+          <!-- Card 3: TOTAL REGISTERED -->
           <button
             type="button"
             class="kpi-card"
-            :class="{ active: activeTab === 'vipsCheckedIn' }"
-            @click="activeTab = 'vipsCheckedIn'"
+            :class="{ active: activeTab === 'totalRegistered' }"
+            @click="activeTab = 'totalRegistered'"
           >
             <div class="kpi-label">
-              <span>VIPs</span>
-              <span>CHECKED-IN</span>
+              <span>TOTAL</span>
+              <span>REGISTERED</span>
             </div>
-            <div class="kpi-number">{{ summaryMetrics.vipsCheckedIn }}</div>
+            <div class="kpi-number">{{ summaryMetrics.totalRegistered ?? summaryMetrics.vipsCheckedIn ?? 0 }}</div>
           </button>
 
           <!-- Card 4: FAILED SCANS / OVERRIDES -->
@@ -339,7 +339,7 @@ const isCalendarOpen = ref(false)
 const isAdjustModalOpen = ref(false)
 const selectedIsoDate = ref(initialDayInfo.isoDate)
 const displayDateText = ref(initialDayInfo.shortText)
-const activeTab = ref('totalCheckedIn') // 'totalCheckedIn' | 'upcomingArrivals' | 'vipsCheckedIn' | 'failedScans'
+const activeTab = ref('totalCheckedIn') // 'totalCheckedIn' | 'upcomingArrivals' | 'totalRegistered' | 'failedScans'
 
 const occupancyData = ref({ current: 0, capacity: 100, eventDayText: initialDayInfo.dateText })
 
@@ -347,27 +347,27 @@ const handleCapacityUpdated = (newCapacity) => {
   occupancyData.value.capacity = newCapacity
   loadAnalytics()
 }
-const summaryMetrics = ref({ totalCheckedIn: 0, upcomingArrivals: 0, vipsCheckedIn: 0, failedScans: 0 })
+const summaryMetrics = ref({ totalCheckedIn: 0, upcomingArrivals: 0, totalRegistered: 0, failedScans: 0 })
 const seriesData = ref({
   totalCheckedIn: [],
   upcomingArrivals: [],
-  vipsCheckedIn: [],
+  totalRegistered: [],
   failedScans: []
 })
 
 const defaultHourlyData = [
-  { slot: '00:00', count: 0 },
-  { slot: '02:00', count: 0 },
-  { slot: '04:00', count: 0 },
-  { slot: '06:00', count: 0 },
-  { slot: '08:00', count: 0 },
   { slot: '10:00', count: 0 },
+  { slot: '11:00', count: 0 },
   { slot: '12:00', count: 0 },
+  { slot: '13:00', count: 0 },
   { slot: '14:00', count: 0 },
+  { slot: '15:00', count: 0 },
   { slot: '16:00', count: 0 },
+  { slot: '17:00', count: 0 },
   { slot: '18:00', count: 0 },
+  { slot: '19:00', count: 0 },
   { slot: '20:00', count: 0 },
-  { slot: '22:00', count: 0 }
+  { slot: '21:00', count: 0 }
 ]
 
 const activeHourlyData = computed(() => {

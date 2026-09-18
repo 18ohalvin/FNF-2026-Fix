@@ -6,9 +6,7 @@
         <div class="modal-top-bar">
           <div class="top-bar-title-group">
             <h2 class="top-bar-title">CUSTOMER E-PASS</h2>
-            <span class="guest-role-pill" :class="{ 'vip-pill': isVip }">
-              {{ isVip ? 'VIP PASS' : 'PUBLIC PASS' }}
-            </span>
+            <span class="guest-role-pill">GUEST PASS</span>
           </div>
           <button type="button" class="close-btn" @click="handleClose" aria-label="Close">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -18,81 +16,83 @@
           </button>
         </div>
 
-        <!-- Scrollable E-Pass Canvas Preview Container -->
+        <!-- Scrollable E-Pass Canvas Preview Container (Figma 540:419) -->
         <div class="pass-preview-scroll">
-          <div class="digital-pass-card" :class="{ 'vip-theme': isVip }">
-            <!-- 1. Header with Logo -->
+          <div class="digital-pass-card">
+            <!-- 1. Header with 707 White Logo on the Right -->
             <div class="pass-header">
               <img
-                src="../assets/logo-707.png"
+                src="../assets/logo-707-white.png"
                 alt="707"
-                class="pass-logo"
-                :class="{ 'white-logo': isVip }"
+                class="pass-logo-707"
               />
-              <span class="pass-access-badge">YOUR ACCESS</span>
             </div>
 
-            <!-- 2. Role Title -->
-            <div class="pass-role-title">
-              {{ isVip ? 'VIP GUEST' : 'PUBLIC GUEST' }}
+            <!-- 2. On Brand White Logo on the Left -->
+            <div class="pass-brand-icon-box">
+              <img
+                src="../assets/logo-on-white.png"
+                alt="On Logo"
+                class="pass-brand-icon"
+              />
             </div>
 
-            <!-- 3. QR Code Box -->
-            <div class="pass-qr-box">
-              <img v-if="qrDataUrl" :src="qrDataUrl" alt="Pass QR Code" class="pass-qr-img" />
-              <div v-else class="qr-loading">Generating QR...</div>
-            </div>
-
-            <!-- 4. Details Grid -->
-            <div class="pass-grid">
-              <div class="pass-grid-col">
-                <span class="pass-label">GUEST NAME</span>
-                <span class="pass-val">{{ formattedGuestName }}</span>
+            <!-- 3. Identity & QR Row (QR on left, Guest Name & Venue on right) -->
+            <div class="pass-identity-row">
+              <div class="pass-qr-box">
+                <img v-if="qrDataUrl" :src="qrDataUrl" alt="Pass QR Code" class="pass-qr-img" />
+                <div v-else class="qr-loading">...</div>
               </div>
-              <div class="pass-grid-col">
-                <span class="pass-label">VENUE</span>
-                <span class="pass-val">PLAZA SENAYAN<br>4th FLOOR</span>
-              </div>
-            </div>
 
-            <div class="pass-grid pass-grid-row2">
-              <div class="pass-grid-col">
-                <span class="pass-label">VALID FOR</span>
-                <div class="pass-val">
-                  <div v-for="(line, idx) in validForLines" :key="idx">
-                    {{ line }}
+              <div class="pass-info-container">
+                <!-- Guest Name -->
+                <div class="pass-info-block">
+                  <span class="pass-label">GUEST NAME</span>
+                  <div class="pass-val">
+                    <p v-for="(line, idx) in guestNameLines" :key="idx" class="pass-val-line">
+                      {{ line }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Venue -->
+                <div class="pass-info-block">
+                  <span class="pass-label">VENUE</span>
+                  <div class="pass-val">
+                    <p class="pass-val-line">LA MODA PLAZA</p>
+                    <p class="pass-val-line">INDONESIA</p>
                   </div>
                 </div>
               </div>
-              <div class="pass-grid-col">
-                <span class="pass-label">ACCESS ID</span>
-                <span class="pass-val">{{ computedAccessId }}</span>
+            </div>
+
+            <!-- 4. Valid Access Dates (Separated by Date - Figma 540:419) -->
+            <div class="pass-validity-section">
+              <span class="pass-label">VALID FOR</span>
+              
+              <div class="pass-date-groups-wrapper">
+                <div v-for="group in dateGroups" :key="group.date" class="pass-date-group">
+                  <h3 class="pass-date-title">{{ group.date }}</h3>
+                  <div class="pass-slots-list">
+                    <div v-for="slot in group.slots" :key="slot.id" class="pass-slot-card">
+                      <span class="slot-time">{{ slot.time }}</span>
+                      <div class="slot-session-box">
+                        <span class="slot-session-name">{{ slot.session || 'PLAYBACK' }}</span>
+                        <span v-if="slot.sessionSub" class="slot-session-sub">{{ slot.sessionSub }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- 5. Promotional Sponsor Banner with Clickable Link -->
-            <div class="pass-banner-wrapper">
-              <a
-                href="https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="pass-banner-link"
-              >
-                <img
-                  src="../assets/ad-banner.png"
-                  alt="Nikmati promo spesial dari Jenius!"
-                  class="pass-banner-img"
-                />
-              </a>
-            </div>
-
-            <!-- 6. Terms & Conditions -->
+            <!-- 5. Terms & Conditions (White Typography) -->
             <div class="pass-terms">
               <span class="terms-title">TERMS & CONDITIONS:</span>
-              <p class="terms-item">1. Valid for one (1) person only — non-transferable.</p>
-              <p class="terms-item">2. Present this ticket at the entrance for scanning.</p>
-              <p class="terms-item">3. No re-entry once you have exited the venue.</p>
-              <p class="terms-item">4. Management is not liable for loss of personal belongings.</p>
+              <p class="terms-item">Valid for one (1) person only — non-transferable.</p>
+              <p class="terms-item">Present this ticket at the entrance for scanning.</p>
+              <p class="terms-item">No re-entry once you have exited the venue.</p>
+              <p class="terms-item">Management is not liable for loss of personal belongings.</p>
             </div>
           </div>
         </div>
@@ -130,9 +130,9 @@
 import { ref, computed, watch } from 'vue'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
-import logo707Black from '../assets/logo-707.png'
-import adBannerImg from '../assets/ad-banner.png'
-import { LOGO_707_BASE64, LOGO_707_WHITE_BASE64, AD_BANNER_BASE64, SPONSOR_PROMO_URL } from '../utils/clientAssets'
+import epassBgImg from '../assets/epass-bg.png'
+import { LOGO_707_WHITE_BASE64, ON_LOGO_WHITE_BASE64 } from '../utils/clientAssets'
+import { resolveArrivalSlots } from '../utils/dateHelper'
 
 const props = defineProps({
   isOpen: {
@@ -150,11 +150,6 @@ const emit = defineEmits(['close'])
 const qrDataUrl = ref('')
 const isDownloading = ref(false)
 
-const isVip = computed(() => {
-  const role = props.guest?.role || ''
-  return role.toUpperCase().includes('VIP')
-})
-
 const computedAccessId = computed(() => {
   return props.guest?.access_id || '707'
 })
@@ -168,42 +163,76 @@ const formattedGuestName = computed(() => {
   return `${formattedSal} ${first} ${last}`.trim() || 'GUEST'
 })
 
-const validForLines = computed(() => {
-  if (!props.guest) return ['VIP: DAY 1']
-  const rawDates = props.guest.selected_dates || props.guest.selectedDates || []
-  let arr = []
-  if (Array.isArray(rawDates)) {
-    arr = rawDates
-  } else if (typeof rawDates === 'string') {
-    try {
-      arr = JSON.parse(rawDates)
-    } catch (e) {
-      arr = rawDates.split(',').map(s => s.trim())
+const guestNameLines = computed(() => {
+  const sal = (props.guest?.salutation || '').trim()
+  const first = (props.guest?.first_name || props.guest?.firstName || '').toUpperCase().trim()
+  const last = (props.guest?.last_name || props.guest?.lastName || '').toUpperCase().trim()
+
+  if (sal && first && last) {
+    const formattedSal = sal.endsWith('.') ? sal : sal + '.'
+    return [`${formattedSal} ${first}`, last]
+  } else if (sal && first) {
+    const formattedSal = sal.endsWith('.') ? sal : sal + '.'
+    return [`${formattedSal} ${first}`]
+  } else if (first && last) {
+    return [first, last]
+  } else if (first) {
+    return [first]
+  } else {
+    const rawFull = formattedGuestName.value || 'GUEST'
+    const parts = rawFull.split(/\s+/).filter(Boolean)
+    if (parts.length === 2) {
+      return [parts[0], parts[1]]
+    } else if (parts.length > 2) {
+      return [parts.slice(0, parts.length - 1).join(' '), parts[parts.length - 1]]
     }
+    return [rawFull]
+  }
+})
+
+const dateGroups = computed(() => {
+  if (!props.guest) return []
+  const rawDates = props.guest.selected_dates || props.guest.selectedDates || []
+  const slots = resolveArrivalSlots(rawDates)
+  
+  if (!slots || slots.length === 0) {
+    return [
+      {
+        date: '19 SEPT 2026',
+        slots: [{ id: 'default', time: '16:30 - 17:00', session: 'PLAYBACK', sessionSub: '' }]
+      }
+    ]
   }
 
-  const normalized = arr.map(k => String(k).toLowerCase().trim())
-  const hasDay1 = normalized.some(k => k === 'day-1' || k === '1' || k.includes('day 1'))
-  const publicDays = ['day-2', 'day-3', 'day-4', 'day-5'].filter(d => 
-    normalized.some(k => k === d || k === d.replace('day-', '') || k === d.replace('-', ' '))
-  )
+  const groups = []
+  const map = new Map()
 
-  const lines = []
-  if (hasDay1) {
-    lines.push('VIP: DAY 1')
-  }
-  if (publicDays.length === 4) {
-    lines.push('PUBLIC: ALL DAY')
-  } else if (publicDays.length > 0) {
-    const nums = publicDays.map(d => d.replace('day-', '')).join(', ')
-    lines.push(`PUBLIC: DAY ${nums}`)
-  }
+  slots.forEach(slot => {
+    let dStr = '19 SEPT 2026'
+    if (slot.dateId === '20-sep' || slot.dateIso === '2026-09-20' || slot.id?.startsWith('20sep') || slot.date?.startsWith('20')) {
+      dStr = '20 SEPT 2026'
+    } else if (slot.dateId === '19-sep' || slot.dateIso === '2026-09-19' || slot.id?.startsWith('19sep') || slot.date?.startsWith('19')) {
+      dStr = '19 SEPT 2026'
+    } else if (slot.date) {
+      dStr = slot.date.toUpperCase()
+    }
 
-  if (lines.length === 0) {
-    lines.push(isVip.value ? 'VIP: DAY 1' : 'PUBLIC: DAY 2')
-  }
+    if (!map.has(dStr)) {
+      const g = { date: dStr, slots: [] }
+      map.set(dStr, g)
+      groups.push(g)
+    }
+    map.get(dStr).slots.push(slot)
+  })
 
-  return lines
+  // Ensure chronological order: 19 SEPT then 20 SEPT
+  groups.sort((a, b) => {
+    if (a.date.includes('19') && b.date.includes('20')) return -1
+    if (a.date.includes('20') && b.date.includes('19')) return 1
+    return 0
+  })
+
+  return groups
 })
 
 // Generate QR Code when guest changes or modal opens
@@ -226,18 +255,22 @@ const handleClose = () => {
   emit('close')
 }
 
-// Generate & Download PDF on demand
+// Generate & Download PDF matching Figma 540:419
 const handleDownloadPdf = async () => {
   if (!props.guest || isDownloading.value) return
   isDownloading.value = true
 
   try {
     const accessId = computedAccessId.value
-    const vip = isVip.value
+    const groups = dateGroups.value
 
-    const scale = 3
+    // Calculate dynamic height based on slots count
+    let totalSlots = 0
+    groups.forEach(g => { totalSlots += g.slots.length })
+    const baseHeight = 680 + (groups.length * 28) + (totalSlots * 56)
+    const height = Math.max(760, baseHeight)
     const width = 402
-    const height = 860
+    const scale = 3
 
     const canvas = document.createElement('canvas')
     canvas.width = width * scale
@@ -257,31 +290,31 @@ const handleDownloadPdf = async () => {
       img.src = src
     })
 
-    // 1. Background
-    ctx.fillStyle = vip ? '#000000' : '#f2f2f2'
-    ctx.fillRect(0, 0, width, height)
-
-    // 2. Logo (Infallible embedded Base64)
-    const logoSrc = vip ? LOGO_707_WHITE_BASE64 : LOGO_707_BASE64
-    const logoImg = await loadImage(logoSrc)
-    if (logoImg) {
-      ctx.drawImage(logoImg, 24, 15.5, 53, 17)
+    // 1. Background Artwork (Figma 540:419)
+    const bgImg = await loadImage(epassBgImg)
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, width, height)
+    } else {
+      ctx.fillStyle = '#4a251b'
+      ctx.fillRect(0, 0, width, height)
     }
 
-    // 3. Title Row
-    ctx.font = "300 18px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillStyle = vip ? '#ffffff' : '#000000'
-    ctx.textAlign = 'left'
-    ctx.fillText(vip ? 'VIP GUEST' : 'PUBLIC GUEST', 24, 76)
+    // 2. Header: 707 White Logo on top right (w: 52, h: 16)
+    const logo707 = await loadImage(LOGO_707_WHITE_BASE64)
+    if (logo707) {
+      ctx.drawImage(logo707, 326, 24, 52, 16)
+    }
 
-    ctx.font = "400 18px 'Helvetica Neue', Arial, sans-serif"
-    ctx.textAlign = 'right'
-    ctx.fillText('YOUR ACCESS', 378, 76)
+    // 3. On Brand White Logo on the left (w: 30, h: 61)
+    const logoOn = await loadImage(ON_LOGO_WHITE_BASE64)
+    if (logoOn) {
+      ctx.drawImage(logoOn, 24, 56, 30, 61)
+    }
 
-    // 4. QR Code
+    // 4. QR Code Box (X: 24, Y: 133, Size: 156, Radius: 5)
     const qrBoxX = 24
-    const qrBoxY = 108
-    const qrBoxSize = 195
+    const qrBoxY = 133
+    const qrBoxSize = 156
     const qrRadius = 5
 
     const drawRoundRect = (c, x, y, w, h, r) => {
@@ -298,71 +331,100 @@ const handleDownloadPdf = async () => {
     drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
     ctx.fill()
 
-    ctx.strokeStyle = vip ? '#ffffff' : '#000000'
+    ctx.strokeStyle = '#000000'
     ctx.lineWidth = 0.5
     drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
     ctx.stroke()
 
     const qrImg = await loadImage(qrDataUrl.value)
     if (qrImg) {
-      ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
+      ctx.drawImage(qrImg, qrBoxX + 10, qrBoxY + 10, 136, 136)
     }
 
-    // 5. Grid Details
+    // 5. Identity Details in White (Side-by-side with QR)
+    const infoX = 208
     ctx.textAlign = 'left'
-    ctx.fillStyle = vip ? '#ffffff' : '#000000'
+    ctx.fillStyle = '#ffffff'
+    
+    // GUEST NAME
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('GUEST NAME', 24, 344)
-    ctx.fillText('VENUE', 216, 344)
+    ctx.fillText('GUEST NAME', infoX, 148)
 
     ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
-    const nameParts = formattedGuestName.value.split(/\s+/).filter(Boolean)
-    let line1 = formattedGuestName.value
-    let line2 = ''
-    if (nameParts.length === 2) {
-      line1 = nameParts[0]
-      line2 = nameParts[1]
-    } else if (nameParts.length > 2) {
-      line1 = nameParts.slice(0, nameParts.length - 1).join(' ')
-      line2 = nameParts[nameParts.length - 1]
+    const nameLines = guestNameLines.value
+    const name1 = nameLines[0] || formattedGuestName.value || 'GUEST'
+    const name2 = nameLines[1] || ''
+    ctx.fillText(name1, infoX, 172)
+    if (name2) {
+      ctx.fillText(name2, infoX, 192)
     }
-    ctx.fillText(line1, 24, 368)
-    if (line2) ctx.fillText(line2, 24, 390)
 
-    ctx.fillText('PLAZA SENAYAN', 216, 368)
-    ctx.fillText('4th FLOOR', 216, 390)
-
-    // Row 2: VALID FOR & ACCESS ID
+    // VENUE
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('VALID FOR', 24, 438)
-    ctx.fillText('ACCESS ID', 216, 438)
+    ctx.fillText('VENUE', infoX, 230)
 
-    ctx.font = "500 14px 'Helvetica Neue', Arial, sans-serif"
-    const lines = validForLines.value
-    if (lines.length === 1) {
-      ctx.fillText(lines[0], 24, 462)
-    } else {
-      ctx.fillText(lines[0], 24, 458)
-      ctx.fillText(lines[1], 24, 478)
-    }
-    ctx.fillText(accessId, 216, 462)
+    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('LA MODA PLAZA', infoX, 254)
+    ctx.fillText('INDONESIA', infoX, 274)
 
-    // 6. Ad Banner (Infallible embedded Base64, Y: 510, X: 24, W: 354, H: 177)
-    const banner = await loadImage(AD_BANNER_BASE64)
-    if (banner) {
-      ctx.drawImage(banner, 24, 510, 354, 177)
-    }
-
-    // 7. Terms
+    // 6. VALID FOR Section
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('TERMS & CONDITIONS:', 24, 720)
+    ctx.fillText('VALID FOR', 24, 320)
+
+    let curY = 346
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i]
+
+      // Date Title
+      ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+      ctx.textAlign = 'left'
+      ctx.fillText(group.date, 24, curY)
+      curY += 16
+
+      // Slot Cards
+      for (const slot of group.slots) {
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 1
+        ctx.strokeRect(24, curY, 354, 48)
+
+        // Time on Left
+        ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
+        ctx.textAlign = 'left'
+        ctx.fillText(slot.time, 48, curY + 29)
+
+        // Session on Right
+        ctx.textAlign = 'right'
+        if (slot.sessionSub) {
+          ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
+          ctx.fillText(slot.session || 'LIVE GUIDED LED', 354, curY + 20)
+          ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
+          ctx.fillText(slot.sessionSub, 354, curY + 36)
+        } else {
+          ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
+          ctx.fillText(slot.session || 'PLAYBACK', 354, curY + 29)
+        }
+
+        curY += 56
+      }
+
+      // Add spacious gap between date groups
+      curY += (i < groups.length - 1) ? 28 : 16
+    }
+
+    // 7. Terms & Conditions
+    curY += 16
+    ctx.textAlign = 'left'
+    ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('TERMS & CONDITIONS:', 24, curY)
+
+    curY += 20
     ctx.font = "300 11px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 744)
-    ctx.fillText('Present this ticket at the entrance for scanning.', 24, 764)
-    ctx.fillText('No re-entry once you have exited the venue.', 24, 784)
-    ctx.fillText('Management is not liable for loss of personal belongings.', 24, 804)
+    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, curY)
+    ctx.fillText('Present this ticket at the entrance for scanning.', 24, curY + 16)
+    ctx.fillText('No re-entry once you have exited the venue.', 24, curY + 32)
+    ctx.fillText('Management is not liable for loss of personal belongings.', 24, curY + 48)
 
-    // 8. Generate PDF
+    // 8. Output PDF
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -370,9 +432,7 @@ const handleDownloadPdf = async () => {
       format: [width, height]
     })
     pdf.addImage(imgData, 'PNG', 0, 0, width, height, '', 'FAST')
-    pdf.link(24, 510, 354, 177, { url: SPONSOR_PROMO_URL })
-
-    pdf.save(`FNF-2026-${vip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`)
+    pdf.save(`707-EPASS-${accessId}.pdf`)
   } catch (err) {
     console.error('Error generating PDF pass in modal:', err)
   } finally {
@@ -392,27 +452,26 @@ const handleDownloadPdf = async () => {
   align-items: center;
   justify-content: center;
   padding: 16px;
+  box-sizing: border-box;
 }
 
 .pass-modal-card {
   background-color: #ffffff;
+  border-radius: 4px;
   width: 100%;
   max-width: 440px;
   max-height: 90vh;
-  border-radius: 0;
-  border: 1px solid #000000;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
   overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
 }
 
 .modal-top-bar {
   padding: 16px 20px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid #e5e5e5;
   background-color: #ffffff;
 }
@@ -425,9 +484,8 @@ const handleDownloadPdf = async () => {
 
 .top-bar-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0;
   color: #000000;
@@ -435,19 +493,12 @@ const handleDownloadPdf = async () => {
 
 .guest-role-pill {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   padding: 2px 8px;
-  border: 1px solid #000000;
-  background-color: #f2f2f2;
-  color: #000000;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.guest-role-pill.vip-pill {
   background-color: #000000;
   color: #ffffff;
+  letter-spacing: 0.05em;
 }
 
 .close-btn {
@@ -470,79 +521,76 @@ const handleDownloadPdf = async () => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background-color: #e0e0e0;
+  background-color: #1a1a1a;
   display: flex;
   justify-content: center;
 }
 
+/* Digital Pass Card matching Figma 540:419 */
 .digital-pass-card {
   width: 100%;
-  max-width: 380px;
-  background-color: #f2f2f2;
-  color: #000000;
-  padding: 20px;
-  border: 1px solid #cccccc;
+  max-width: 402px;
+  background-image: url('../assets/epass-bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: #ffffff;
+  padding: 24px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.digital-pass-card.vip-theme {
-  background-color: #000000;
-  color: #ffffff;
-  border-color: #333333;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  position: relative;
 }
 
 .pass-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 20px;
+  width: 100%;
+  margin-bottom: 8px;
 }
 
-.pass-logo {
+.pass-logo-707 {
   height: 16px;
   width: auto;
   display: block;
 }
 
-.pass-logo.white-logo {
-  filter: brightness(0) invert(1);
-}
-
-.pass-access-badge {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-}
-
-.pass-role-title {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+.pass-brand-icon-box {
+  display: flex;
+  align-items: center;
   margin-bottom: 16px;
-  text-transform: uppercase;
+}
+
+.pass-brand-icon {
+  height: 61px;
+  width: 30px;
+  display: block;
+  object-fit: contain;
+}
+
+/* Identity & QR Row (QR on left, Guest & Venue on right) */
+.pass-identity-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  width: 100%;
 }
 
 .pass-qr-box {
-  width: 170px;
-  height: 170px;
+  width: 156px;
+  height: 156px;
+  min-width: 156px;
   background-color: #f2f2f2;
-  border-radius: 4px;
-  margin: 0 auto 20px 0;
+  border-radius: 5px;
+  border: 0.5px solid #000000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 10px;
   box-sizing: border-box;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-}
-
-.vip-theme .pass-qr-box {
-  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .pass-qr-img {
@@ -557,84 +605,157 @@ const handleDownloadPdf = async () => {
   color: #666666;
 }
 
-.pass-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.pass-grid-row2 {
-  margin-bottom: 20px;
-}
-
-.pass-grid-col {
+.pass-info-container {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 24px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pass-info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .pass-label {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.05em;
-  opacity: 0.75;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  color: #ffffff;
   text-transform: uppercase;
+  line-height: 16px;
 }
 
 .pass-val {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 18px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 20px;
+  color: #ffffff;
+  text-transform: uppercase;
+  word-break: break-word;
+}
+
+.pass-val-line {
+  margin: 0;
+  line-height: 20px;
+}
+
+/* VALID FOR / Date Options */
+.pass-validity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.pass-date-groups-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+}
+
+.pass-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pass-date-title {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 20px;
+  margin: 0;
+  color: #ffffff;
   text-transform: uppercase;
 }
 
-.pass-banner-wrapper {
-  margin: 0 0 20px 0;
-  width: 100%;
+.pass-slots-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.pass-banner-link {
-  display: block;
-  width: 100%;
+.pass-slot-card {
+  height: 48px;
+  border: 1px solid #ffffff;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: transparent;
+  color: #ffffff;
 }
 
-.pass-banner-img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 2px;
+.slot-time {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 14px;
+  white-space: nowrap;
 }
 
+.slot-session-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.slot-session-name {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 16px;
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.slot-session-sub {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 16px;
+  color: #ffffff;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Terms & Conditions */
 .pass-terms {
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  padding-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.vip-theme .pass-terms {
-  border-top-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding-top: 16px;
 }
 
 .terms-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
+  line-height: 16px;
 }
 
 .terms-item {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 11px;
+  font-weight: 300;
+  line-height: 15.125px;
   margin: 0;
-  opacity: 0.8;
+  color: #ffffff;
+  opacity: 0.95;
 }
 
 .modal-bottom-actions {
@@ -650,16 +771,9 @@ const handleDownloadPdf = async () => {
   height: 44px;
   background-color: #000000;
   border: 1px solid #000000;
-  border-radius: 0;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: #ffffff;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 8px;
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -679,7 +793,6 @@ const handleDownloadPdf = async () => {
   height: 44px;
   background-color: transparent;
   border: 1px solid #cccccc;
-  border-radius: 0;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 13px;
   font-weight: 500;

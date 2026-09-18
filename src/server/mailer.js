@@ -4,7 +4,8 @@ import nodemailer from 'nodemailer'
 import { jsPDF } from 'jspdf'
 import fs from 'fs'
 import path from 'path'
-import { getLogoDataUrl, getAdBannerDataUrl } from './assets.js'
+import { getLogoDataUrl, getOnLogoDataUrl, getOnLogoWhiteDataUrl, getEpassBgDataUrl, getAdBannerDataUrl } from './assets.js'
+import { resolveArrivalSlots } from '../utils/dateHelper.js'
 
 dotenv.config()
 
@@ -35,51 +36,90 @@ class MailerService {
   }
 
   /**
-   * Helper to format human-readable event day names
+   * Format selected date intervals into a clean string for emails/passes
    */
-  getValidForLines(dates, role = 'VIP GUEST') {
-    let arr = Array.isArray(dates) ? dates : []
-    if (typeof dates === 'string') {
-      try {
-        arr = JSON.parse(dates)
-      } catch (e) {
-        arr = dates.split(',').map(s => s.trim())
-      }
-    }
-    const normalized = arr.map(k => String(k).toLowerCase().trim())
-    const hasDay1 = normalized.some(k => k === 'day-1' || k === '1' || k.includes('day 1'))
-    const publicDays = ['day-2', 'day-3', 'day-4', 'day-5'].filter(d => 
-      normalized.some(k => k === d || k === d.replace('day-', '') || k === d.replace('-', ' '))
-    )
-
-    const lines = []
-    if (hasDay1) {
-      lines.push('VIP: DAY 1')
-    }
-    if (publicDays.length === 4) {
-      lines.push('PUBLIC: ALL DAY')
-    } else if (publicDays.length > 0) {
-      const nums = publicDays.map(d => d.replace('day-', '')).join(', ')
-      lines.push(`PUBLIC: DAY ${nums}`)
+  formatDates(selectedDates) {
+    if (!selectedDates || (Array.isArray(selectedDates) && selectedDates.length === 0)) {
+      return 'ALL DAYS'
     }
 
-    if (lines.length === 0) {
-      lines.push((role || '').toUpperCase().includes('VIP') ? 'VIP: DAY 1' : 'PUBLIC: DAY 2')
+    if (Array.isArray(selectedDates)) {
+      return selectedDates.map(d => {
+        const str = typeof d === 'string' ? d : `${d.date || ''} ${d.timeSlot || d.time || ''}`.trim()
+        return str
+      }).join('<br>')
     }
-    return lines
-  }
 
-  formatDates(dates, role = 'VIP GUEST') {
-    return this.getValidForLines(dates, role).join('<br>')
+    if (typeof selectedDates === 'object') {
+      return Object.entries(selectedDates)
+        .map(([date, times]) => {
+          const tStr = Array.isArray(times) ? times.join(', ') : times
+          return `${date}: ${tStr}`
+        })
+        .join('<br>')
+    }
+
+    return String(selectedDates)
   }
 
   /**
-   * Generate official PDF E-Pass Buffer with clickable promotional banner
+   * Get clean text lines for PDF "VALID FOR"
+   */
+  getValidForLines(selectedDates, role) {
+    if (!selectedDates || (Array.isArray(selectedDates) && selectedDates.length === 0)) {
+      return ['ALL DAYS']
+    }
+
+    if (Array.isArray(selectedDates)) {
+      return selectedDates.map(d => {
+        if (typeof d === 'string') return d
+        return `${d.date || ''} ${d.timeSlot || d.time || ''}`.trim()
+      })
+    }
+
+    return ['ALL DAYS']
+  }
+
+  /**
+   * Generate official PDF E-Pass Buffer matching Figma 540:419
    */
   async generatePassPdfBuffer({ guestName, accessId, role, selectedDates }) {
-    const isVip = (role || '').toUpperCase().includes('VIP')
+    const slots = resolveArrivalSlots(selectedDates)
+    
+    // Group slots by date
+    const groups = []
+    const map = new Map()
+
+    slots.forEach(slot => {
+      let dStr = '19 SEPT 2026'
+      if (slot.dateId === '20-sep' || slot.dateIso === '2026-09-20' || slot.id?.startsWith('20sep') || slot.date?.startsWith('20')) {
+        dStr = '20 SEPT 2026'
+      } else if (slot.dateId === '19-sep' || slot.dateIso === '2026-09-19' || slot.id?.startsWith('19sep') || slot.date?.startsWith('19')) {
+        dStr = '19 SEPT 2026'
+      } else if (slot.date) {
+        dStr = slot.date.toUpperCase()
+      }
+
+      if (!map.has(dStr)) {
+        const g = { date: dStr, slots: [] }
+        map.set(dStr, g)
+        groups.push(g)
+      }
+      map.get(dStr).slots.push(slot)
+    })
+
+    // Ensure chronological order: 19 SEPT then 20 SEPT
+    groups.sort((a, b) => {
+      if (a.date.includes('19') && b.date.includes('20')) return -1
+      if (a.date.includes('20') && b.date.includes('19')) return 1
+      return 0
+    })
+
+    let totalSlots = 0
+    groups.forEach(g => { totalSlots += g.slots.length })
+    const baseHeight = 680 + (groups.length * 28) + (totalSlots * 56)
+    const height = Math.max(760, baseHeight)
     const width = 402
-    const height = 860
 
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -87,45 +127,46 @@ class MailerService {
       format: [width, height]
     })
 
-    // 1. Background Fill
-    if (isVip) {
-      doc.setFillColor(0, 0, 0)
-    } else {
-      doc.setFillColor(242, 242, 242)
-    }
-    doc.rect(0, 0, width, height, 'F')
-
-    // 2. Logo (Infallible Data URL)
+    // 1. Background Fill / Artwork
     try {
-      const logoBase64 = getLogoDataUrl(isVip)
+      const bgDataUrl = getEpassBgDataUrl()
+      if (bgDataUrl) {
+        doc.addImage(bgDataUrl, 'PNG', 0, 0, width, height)
+      } else {
+        doc.setFillColor(74, 37, 27)
+        doc.rect(0, 0, width, height, 'F')
+      }
+    } catch (e) {
+      doc.setFillColor(74, 37, 27)
+      doc.rect(0, 0, width, height, 'F')
+    }
+
+    // 2. Logo 707 on top right (w: 52, h: 16) - Pure White
+    try {
+      const logoBase64 = getLogoDataUrl(true)
       if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', 24, 15.5, 53, 17)
+        doc.addImage(logoBase64, 'PNG', 326, 24, 52, 16)
       }
     } catch (e) {
       console.warn('[PDF Gen]: Logo embed error:', e.message)
     }
 
-    // 3. Title Row
-    doc.setFont('Helvetica', 'bold')
-    doc.setFontSize(18)
-    if (isVip) {
-      doc.setTextColor(255, 255, 255)
-      doc.text('VIP GUEST', 24, 76)
-      doc.setFont('Helvetica', 'normal')
-      doc.text('YOUR ACCESS', 378, 76, { align: 'right' })
-    } else {
-      doc.setTextColor(0, 0, 0)
-      doc.text('PUBLIC GUEST', 24, 76)
-      doc.setFont('Helvetica', 'normal')
-      doc.text('YOUR ACCESS', 378, 76, { align: 'right' })
+    // 3. On Brand Logo on left (w: 30, h: 61) - Pure White
+    try {
+      const onLogoBase64 = getOnLogoWhiteDataUrl()
+      if (onLogoBase64) {
+        doc.addImage(onLogoBase64, 'PNG', 24, 56, 30, 61)
+      }
+    } catch (e) {
+      console.warn('[PDF Gen]: On logo embed error:', e.message)
     }
 
-    // 4. QR Code Box
+    // 4. QR Code Box (X: 24, Y: 133, Size: 156, Radius: 5)
     doc.setFillColor(242, 242, 242)
-    doc.roundedRect(24, 108, 195, 195, 5, 5, 'F')
-    doc.setDrawColor(isVip ? 255 : 0, isVip ? 255 : 0, isVip ? 255 : 0)
+    doc.roundedRect(24, 133, 156, 156, 5, 5, 'F')
+    doc.setDrawColor(0, 0, 0)
     doc.setLineWidth(0.5)
-    doc.roundedRect(24, 108, 195, 195, 5, 5, 'S')
+    doc.roundedRect(24, 133, 156, 156, 5, 5, 'S')
 
     // Generate high-res QR code
     const qrDataUrl = await QRCode.toDataURL(accessId, {
@@ -133,19 +174,19 @@ class MailerService {
       margin: 0,
       color: { dark: '#000000', light: '#f2f2f2' }
     })
-    doc.addImage(qrDataUrl, 'PNG', 37, 121, 169, 169)
+    doc.addImage(qrDataUrl, 'PNG', 34, 143, 136, 136)
 
-    // 5. Identity Details
+    // 5. Identity Details in White (Side-by-side with QR)
+    const infoX = 208
+    doc.setTextColor(255, 255, 255)
+
+    // GUEST NAME
     doc.setFont('Helvetica', 'normal')
     doc.setFontSize(12)
-    doc.setTextColor(isVip ? 255 : 0, isVip ? 255 : 0, isVip ? 255 : 0)
-    doc.text('GUEST NAME', 24, 344)
-    doc.text('VENUE', 216, 344)
+    doc.text('GUEST NAME', infoX, 148)
 
     doc.setFont('Helvetica', 'bold')
     doc.setFontSize(16)
-
-    // Split name into lines if multi-word
     const parts = (guestName || 'GUEST').split(/\s+/).filter(Boolean)
     let line1 = guestName
     let line2 = ''
@@ -156,54 +197,76 @@ class MailerService {
       line1 = parts.slice(0, parts.length - 1).join(' ')
       line2 = parts[parts.length - 1]
     }
-
-    doc.text(line1, 24, 368)
+    doc.text(line1, infoX, 172)
     if (line2) {
-      doc.text(line2, 24, 390)
+      doc.text(line2, infoX, 192)
     }
 
-    doc.text('PLAZA SENAYAN', 216, 368)
-    doc.text('4th FLOOR', 216, 390)
-
-    // Row 2: Valid For & Access ID
+    // VENUE
     doc.setFont('Helvetica', 'normal')
     doc.setFontSize(12)
-    doc.text('VALID FOR', 24, 438)
-    doc.text('ACCESS ID', 216, 438)
+    doc.text('VENUE', infoX, 230)
 
     doc.setFont('Helvetica', 'bold')
-    doc.setFontSize(14)
-    const validLines = this.getValidForLines(selectedDates, role)
-    if (validLines.length === 1) {
-      doc.text(validLines[0], 24, 462)
-    } else {
-      doc.text(validLines[0], 24, 458)
-      doc.text(validLines[1], 24, 478)
-    }
-    doc.text(accessId, 216, 462)
+    doc.setFontSize(16)
+    doc.text('LA MODA PLAZA', infoX, 254)
+    doc.text('INDONESIA', infoX, 274)
 
-    // 6. Promotional Banner with Clickable Hyperlink
-    const promoLink = 'https://www.jenius.com/greenclubpromo/details/penawaran-jenius-707-ff-sale'
-    try {
-      const bannerBase64 = getAdBannerDataUrl()
-      if (bannerBase64) {
-        doc.addImage(bannerBase64, 'PNG', 24, 510, 354, 177)
-        // Clickable URL Annotation in the PDF
-        doc.link(24, 510, 354, 177, { url: promoLink })
+    // 6. VALID FOR Section
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(12)
+    doc.text('VALID FOR', 24, 320)
+
+    let curY = 346
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i]
+      // Date Title
+      doc.setFont('Helvetica', 'bold')
+      doc.setFontSize(16)
+      doc.text(group.date, 24, curY)
+      curY += 16
+
+      // Slot Cards
+      for (const slot of group.slots) {
+        doc.setDrawColor(255, 255, 255)
+        doc.setLineWidth(1)
+        doc.rect(24, curY, 354, 48, 'S')
+
+        // Time on Left
+        doc.setFont('Helvetica', 'normal')
+        doc.setFontSize(14)
+        doc.text(slot.time, 48, curY + 29)
+
+        // Session on Right
+        if (slot.sessionSub) {
+          doc.setFont('Helvetica', 'normal')
+          doc.setFontSize(14)
+          doc.text(slot.session || 'LIVE GUIDED LED', 354, curY + 20, { align: 'right' })
+          doc.setFontSize(12)
+          doc.text(slot.sessionSub, 354, curY + 36, { align: 'right' })
+        } else {
+          doc.setFont('Helvetica', 'normal')
+          doc.setFontSize(14)
+          doc.text(slot.session || 'PLAYBACK', 354, curY + 29, { align: 'right' })
+        }
+
+        curY += 56
       }
-    } catch (e) {
-      console.warn('[PDF Gen]: Banner embed error:', e.message)
+      curY += (i < groups.length - 1) ? 28 : 16
     }
 
     // 7. Terms & Conditions
+    curY += 16
     doc.setFont('Helvetica', 'normal')
     doc.setFontSize(12)
-    doc.text('TERMS & CONDITIONS:', 24, 720)
-    doc.setFontSize(10)
-    doc.text('Valid for one (1) person only — non-transferable.', 24, 744)
-    doc.text('Present this ticket at the entrance for scanning.', 24, 764)
-    doc.text('No re-entry once you have exited the venue.', 24, 784)
-    doc.text('Management is not liable for loss of personal belongings.', 24, 804)
+    doc.text('TERMS & CONDITIONS:', 24, curY)
+
+    curY += 20
+    doc.setFontSize(11)
+    doc.text('Valid for one (1) person only — non-transferable.', 24, curY)
+    doc.text('Present this ticket at the entrance for scanning.', 24, curY + 16)
+    doc.text('No re-entry once you have exited the venue.', 24, curY + 32)
+    doc.text('Management is not liable for loss of personal belongings.', 24, curY + 48)
 
     const arrayBuf = doc.output('arraybuffer')
     return Buffer.from(arrayBuf)
@@ -253,7 +316,7 @@ class MailerService {
       <div class="header-logo-container">
         <img src="${logoSrc}" alt="707 Logo" class="header-logo-img" />
       </div>
-      <div><span class="badge">${isVip ? 'VIP GUEST' : 'PUBLIC ACCESS'}</span></div>
+      <div><span class="badge">GUEST ACCESS</span></div>
       <h1 class="title">SUCCESS. YOUR PASS HAS BEEN ISSUED.</h1>
       <p class="subtitle">
         Dear ${guestName},<br><br>
@@ -264,7 +327,7 @@ class MailerService {
       <table class="info-table">
         <tr class="info-row">
           <td class="info-label">VENUE</td>
-          <td class="info-val">PLAZA SENAYAN — 4th FLOOR</td>
+          <td class="info-val">LA MODA PLAZA INDONESIA</td>
         </tr>
         <tr class="info-row">
           <td class="info-label">VALID FOR</td>
@@ -315,8 +378,7 @@ class MailerService {
       return { success: false, reason: 'Missing email' }
     }
 
-    const isVip = (role || '').toUpperCase().includes('VIP')
-    const pdfFilename = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`
+    const pdfFilename = `707-PASS-${accessId}.pdf`
 
     // 1. Load promo banner for email HTML (Infallible Data URL)
     const bannerDataUrl = getAdBannerDataUrl()
@@ -342,7 +404,7 @@ class MailerService {
       bannerDataUrl
     })
 
-    const subject = 'CONFIRMED: Your FNF 2026 707 Access Pass'
+    const subject = 'CONFIRMED: Your 707 Access Pass'
 
     // If SMTP is configured
     if (this.transporter) {

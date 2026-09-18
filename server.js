@@ -217,7 +217,7 @@ app.post('/api/check-phone', async (req, res) => {
         lastName: '',
         email: '',
         instagram: '',
-        role: 'VIP GUEST',
+        role: 'GUEST',
         isRegistered: false
       }
     })
@@ -266,7 +266,7 @@ app.post('/api/guests', async (req, res) => {
     const email = req.body.email || 'guest@707.co.id'
     const salutation = req.body.salutation || 'Mr.'
     const instagram = req.body.instagram || ''
-    const role = req.body.role || 'VIP GUEST'
+    const role = req.body.role || 'GUEST'
 
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required' })
@@ -458,11 +458,10 @@ app.get(['/api/pass/pdf', '/api/pass/pdf/:accessId'], async (req, res) => {
 
     reservation = guest ? await db.getReservationByPhone(guest.phone) : null
     const finalAccessId = accessId || guest?.access_id || reservation?.access_id || '707'
-    const role = guest?.role || 'PUBLIC GUEST'
+    const role = guest?.role || 'GUEST'
     const guestName = guest ? `${guest.salutation ? guest.salutation + ' ' : ''}${guest.first_name || ''} ${guest.last_name || ''}`.trim() : 'EVENT GUEST'
     const selectedDates = reservation?.selected_dates || ['day-1', 'day-2', 'day-3', 'day-4', 'day-5']
-    const isVip = role.toUpperCase().includes('VIP')
-    const filename = `FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${finalAccessId}.pdf`
+    const filename = `707-PASS-${finalAccessId}.pdf`
 
     const pdfBuffer = await mailer.generatePassPdfBuffer({
       guestName,
@@ -481,6 +480,21 @@ app.get(['/api/pass/pdf', '/api/pass/pdf/:accessId'], async (req, res) => {
   }
 })
 
+// 3.8. Slot Capacities Endpoint
+app.get('/api/slots/capacity', async (req, res) => {
+  try {
+    const capacities = await db.getSlotCapacities()
+    res.json({
+      success: true,
+      maxCapacity: 25,
+      capacities
+    })
+  } catch (err) {
+    console.error('[API Slots Capacity Error]', err)
+    res.status(500).json({ error: 'Failed to retrieve slot capacities' })
+  }
+})
+
 // 4. Create Reservation Endpoint (Simplified Short Access IDs)
 app.post('/api/reservations', async (req, res) => {
   try {
@@ -488,6 +502,44 @@ app.post('/api/reservations', async (req, res) => {
 
     if (!phone || !selectedDates) {
       return res.status(400).json({ error: 'Missing required reservation parameters' })
+    }
+
+    // Validate quota: max 2 slots per day
+    let parsedSlots = []
+    try {
+      parsedSlots = typeof selectedDates === 'string' ? JSON.parse(selectedDates) : (selectedDates || [])
+    } catch (e) {
+      parsedSlots = String(selectedDates).split(',').map(s => s.trim())
+    }
+    const count19 = parsedSlots.filter(s => String(s).includes('19sep') || String(s).includes('19')).length
+    const count20 = parsedSlots.filter(s => String(s).includes('20sep') || String(s).includes('20')).length
+
+    if (count19 > 2 || count20 > 2) {
+      return res.status(400).json({
+        error: 'You can select up to 2 time slots per day (maximum 4 slots in total).'
+      })
+    }
+
+    // Validate capacity: max 25 per slot
+    const capacities = await db.getSlotCapacities()
+    const existingResv = await db.getReservationByPhone(phone)
+    let existingSlots = []
+    if (existingResv && existingResv.selected_dates) {
+      try {
+        existingSlots = typeof existingResv.selected_dates === 'string' ? JSON.parse(existingResv.selected_dates) : existingResv.selected_dates
+      } catch (e) {
+        existingSlots = []
+      }
+    }
+    const existingSet = new Set(existingSlots)
+
+    for (const slot of parsedSlots) {
+      const slotId = typeof slot === 'object' && slot !== null ? (slot.id || slot.slotId) : String(slot).trim()
+      if (!existingSet.has(slotId) && (capacities[slotId] || 0) >= 25) {
+        return res.status(400).json({
+          error: `The selected time slot is already fully booked (capacity 25/25). Please choose another time slot.`
+        })
+      }
     }
 
     if (!accessId || accessId.length > 8 || accessId.includes('-')) {
@@ -590,14 +642,14 @@ app.post(['/api/scan', '/api/scan/validate'], requireStaffAuth, async (req, res)
           await db.createReservation({
             phone: guestFound.phone,
             accessId: newCode,
-            selectedDates: JSON.stringify(['day-1', 'day-2', 'day-3', 'day-4', 'day-5'])
+            selectedDates: JSON.stringify(['day-1', 'day-2'])
           })
           resv = await db.getReservationByPhone(guestFound.phone)
         }
         record = {
           ...guestFound,
           access_id: resv?.access_id || primaryCode,
-          selected_dates: resv?.selected_dates || JSON.stringify(['day-1', 'day-2', 'day-3', 'day-4', 'day-5'])
+          selected_dates: resv?.selected_dates || JSON.stringify(['day-1', 'day-2'])
         }
       }
     }
@@ -623,7 +675,7 @@ app.post(['/api/scan', '/api/scan/validate'], requireStaffAuth, async (req, res)
       })
     }
 
-    const guestName = `${record.salutation || ''} ${record.first_name || ''} ${record.last_name || ''}`.trim() || 'VIP GUEST'
+    const guestName = `${record.salutation || ''} ${record.first_name || ''} ${record.last_name || ''}`.trim() || 'GUEST'
     const accessId = record.access_id || cleanedCode
     const guestPhone = record.phone || record.guest_phone || ''
 
@@ -651,7 +703,7 @@ app.post(['/api/scan', '/api/scan/validate'], requireStaffAuth, async (req, res)
           name: guestName,
           phone: guestPhone,
           accessId,
-          role: record.role || 'VIP GUEST'
+          role: record.role || 'GUEST'
         },
         liveOccupancy,
         maxCapacity: 100
@@ -708,7 +760,7 @@ app.post(['/api/scan', '/api/scan/validate'], requireStaffAuth, async (req, res)
               name: guestName,
               phone: guestPhone,
               accessId,
-              role: record.role || 'VIP GUEST'
+              role: record.role || 'GUEST'
             },
             liveOccupancy: liveOcc,
             maxCapacity: maxCap
@@ -716,13 +768,13 @@ app.post(['/api/scan', '/api/scan/validate'], requireStaffAuth, async (req, res)
         }
 
         status = 'GRANTED'
-        message = `ACCESS GRANTED: ${guestName} (${record.role || 'VIP GUEST'})`
+        message = `ACCESS GRANTED: ${guestName}`
         checkedInTime = `${hh}:${mm}`
       }
     } else if (mode === 'check-out') {
       if (isCurrentlyInside) {
         status = 'GRANTED'
-        message = `CHECKED OUT: ${guestName} (${record.role || 'VIP GUEST'})`
+        message = `CHECKED OUT: ${guestName}`
         checkedInTime = `${hh}:${mm}`
       } else {
         status = 'NOT_CHECKED_IN'
@@ -754,7 +806,7 @@ app.post(['/api/scan', '/api/scan/validate'], requireStaffAuth, async (req, res)
         name: guestName,
         phone: guestPhone,
         accessId,
-        role: record.role || 'VIP GUEST'
+        role: record.role || 'GUEST'
       },
       liveOccupancy,
       maxCapacity: await db.getMaxCapacity()
@@ -938,35 +990,11 @@ app.post('/api/guests/:phone/delete', requireStaffAuth, (req, res) => handleDele
 app.post('/api/guests/delete', requireStaffAuth, (req, res) => handleDeleteGuest(req.body.phone, res))
 app.post('/api/guests/bulk-delete', requireStaffAuth, (req, res) => handleBulkDeleteGuests(req.body.phones, res))
 
-// Any request for a missing /assets/ file means the device is running a stale
-// index.html that points at a bundle from a previous deploy. Answering with the
-// SPA fallback would hand back HTML for a .js request and leave the device stuck
-// on the old app, so fail loudly instead and let the no-store index.html below
-// pull the device onto the current build.
-app.use('/assets', (req, res, next) => {
-  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
-  next()
-})
-
-// Serve Static Frontend Assets from /dist.
-// index.html itself must never be cached: it is the manifest that points at the
-// content-hashed bundles, so a stale copy pins a device to an old app version.
-app.use(express.static(distPath, {
-  etag: true,
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('index.html')) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
-    }
-  }
-}))
-
-app.use('/assets', (req, res) => {
-  res.status(404).json({ error: 'Asset not found (stale client build)' })
-})
+// Serve Static Frontend Assets from /dist
+app.use(express.static(distPath))
 
 // Single Page Application (SPA) Fallback
 app.use((req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
   res.sendFile(path.join(distPath, 'index.html'))
 })
 

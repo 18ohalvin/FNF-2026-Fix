@@ -23,6 +23,7 @@ const emit = defineEmits(['home'])
   width: 100%;
   height: 48px;
   padding: 0 24px;
+  background-color: var(--bg-primary, #f2f2f2);
   display: flex;
   align-items: center;
   position: relative;
@@ -34,7 +35,7 @@ const emit = defineEmits(['home'])
 .header-container {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-end;
   width: 100%;
   height: 100%;
 }

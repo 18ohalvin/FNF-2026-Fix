@@ -166,8 +166,8 @@
                         {{ `${guest.first_name || ''} ${guest.last_name || ''}`.toUpperCase().trim() || 'GUEST' }}
                       </span>
                       <div class="item-meta">
-                        <span class="role-pill" :class="{ 'vip-pill': (guest.role || '').toUpperCase().includes('VIP') }">
-                          {{ (guest.role || '').toUpperCase().includes('VIP') ? 'VIP GUEST' : 'PUBLIC' }}
+                        <span class="role-pill">
+                          GUEST
                         </span>
                         <span class="phone-meta">{{ guest.phone }}</span>
                       </div>
@@ -258,7 +258,6 @@
       @close="handleModalClose"
       @search="handleModalSearch"
       @adjust-occupancy="handleOpenAdjustOccupancy"
-      @retry="handleModalRetry"
     />
 
     <!-- Adjust Occupancy Limit Modal -->
@@ -429,20 +428,18 @@ const executeScan = async (code) => {
       ticketCode: code,
       accessId: res.guest?.accessId || code,
       guestName: res.guest?.name,
-      role: res.guest?.role || 'VIP GUEST'
+      role: res.guest?.role || 'GUEST'
     }
     isResultModalOpen.value = true
 
     // Also trigger feedback toast
     if (isSuccess) {
-      const modeLabel = scanMode.value === 'check-out' ? 'CHECKED OUT' : (res.guest?.role || 'VIP GUEST')
+      const modeLabel = scanMode.value === 'check-out' ? 'CHECKED OUT' : (res.guest?.role || 'GUEST')
       showFeedback('GRANTED', modeLabel, res.message || 'Access Granted')
     } else if (res.status === 'ALREADY_INSIDE') {
       showFeedback('ALREADY_INSIDE', 'ATTENTION: ALREADY INSIDE', res.message)
     } else if (res.status === 'NOT_CHECKED_IN') {
       showFeedback('NOT_CHECKED_IN', 'ATTENTION: NOT CHECKED IN', res.message)
-    } else if (res.status === 'CONNECTION_LOST') {
-      showFeedback('CONNECTION_LOST', 'CONNECTION PROBLEM — NOT VERIFIED', res.message)
     } else {
       showFeedback('INVALID', 'INVALID TICKET OR WRONG DAY', res.message || 'Access Denied')
     }
@@ -452,25 +449,17 @@ const executeScan = async (code) => {
   } catch (err) {
     isProcessingScan.value = false
     activeScanResult.value = {
-      status: 'CONNECTION_LOST',
-      message: 'Failed to process ticket code. The ticket was NOT verified — please scan again.',
+      status: 'INVALID',
+      message: 'Failed to process ticket code',
       ticketCode: code
     }
     isResultModalOpen.value = true
-    showFeedback('CONNECTION_LOST', 'SCAN ERROR — NOT VERIFIED', 'Failed to process ticket code')
+    showFeedback('INVALID', 'SCAN ERROR', 'Failed to process ticket code')
   }
 }
 
 const handleModalClose = () => {
   isResultModalOpen.value = false
-}
-
-const handleModalRetry = (code) => {
-  isResultModalOpen.value = false
-  const target = code || activeScanResult.value?.ticketCode
-  if (target) {
-    executeScan(target)
-  }
 }
 
 const handleModalSearch = () => {

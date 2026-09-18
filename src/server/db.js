@@ -13,12 +13,16 @@ export function normalizePhoneNumber(phone) {
   return digits
 }
 
-// Helper: Normalize event day ID (e.g. '2026-09-02' -> '1', 'Day 2' -> '2', 'day-3' -> '3')
+// Helper: Normalize event day ID (e.g. '2026-09-19' -> '1', '19sep-1030' -> '1', '20sep-1630' -> '2')
 export function normalizeDayId(str) {
   if (!str) return '1'
   const s = String(str).trim().toLowerCase()
   
-  // 1. Match ISO event dates & calendar labels (02 to 06 September 2026)
+  // 1. Match ISO event dates & calendar labels (19 to 20 September 2026)
+  if (s.includes('2026-09-19') || s.includes('19 sep') || s.includes('19sep')) return '1'
+  if (s.includes('2026-09-20') || s.includes('20 sep') || s.includes('20sep')) return '2'
+
+  // Legacy fallback
   if (s.includes('2026-09-02') || s.includes('02 sep') || s.includes('2 sep')) return '1'
   if (s.includes('2026-09-03') || s.includes('03 sep') || s.includes('3 sep')) return '2'
   if (s.includes('2026-09-04') || s.includes('04 sep') || s.includes('4 sep')) return '3'
@@ -664,6 +668,40 @@ class DatabaseAdapter {
     return { success: true, reservationId: id, accessId: finalAccessId, selectedDates: finalDates }
   }
 
+  async getSlotCapacities() {
+    await this.connect()
+    let reservations = []
+    if (this.driverType === 'postgres') {
+      const res = await this.pgPool.query(`SELECT guest_phone, selected_dates FROM ticket_reservations`)
+      reservations = res.rows
+    } else if (this.driverType === 'mysql') {
+      const [rows] = await this.mysqlPool.query(`SELECT guest_phone, selected_dates FROM ticket_reservations`)
+      reservations = rows
+    } else {
+      reservations = this.sqliteDb.prepare(`SELECT guest_phone, selected_dates FROM ticket_reservations`).all()
+    }
+
+    const counts = {}
+    for (const r of reservations) {
+      if (!r.selected_dates) continue
+      let slots = []
+      try {
+        slots = typeof r.selected_dates === 'string' ? JSON.parse(r.selected_dates) : (r.selected_dates || [])
+      } catch (e) {
+        slots = String(r.selected_dates).split(',').map(s => s.trim())
+      }
+      if (Array.isArray(slots)) {
+        for (const s of slots) {
+          const sId = typeof s === 'object' && s !== null ? (s.id || s.slotId) : String(s).trim()
+          if (sId) {
+            counts[sId] = (counts[sId] || 0) + 1
+          }
+        }
+      }
+    }
+    return counts
+  }
+
   // --- Scans & Live Occupancy ---
 
   async recordScan({ id, guestPhone, accessId, guestName, action, status, message, eventDay = 'day-1', scannedAt }) {
@@ -806,7 +844,7 @@ class DatabaseAdapter {
       } catch (e) {
         gmt7Iso = now.toISOString().split('T')[0]
       }
-      const dayMap = { '2026-09-02': '1', '2026-09-03': '2', '2026-09-04': '3', '2026-09-05': '4', '2026-09-06': '5' }
+      const dayMap = { '2026-09-19': '1', '2026-09-20': '2' }
       const num = dayMap[gmt7Iso] || '1'
       dayParam = `day-${num}`
     }
@@ -841,11 +879,8 @@ class DatabaseAdapter {
 
     const capacity = await this.getMaxCapacity()
     const fullDayMap = {
-      '1': 'DAY 1 - WEDNESDAY, 02 SEPTEMBER 2026',
-      '2': 'DAY 2 - THURSDAY, 03 SEPTEMBER 2026',
-      '3': 'DAY 3 - FRIDAY, 04 SEPTEMBER 2026',
-      '4': 'DAY 4 - SATURDAY, 05 SEPTEMBER 2026',
-      '5': 'DAY 5 - SUNDAY, 06 SEPTEMBER 2026'
+      '1': 'DAY 1 - SATURDAY, 19 SEPTEMBER 2026',
+      '2': 'DAY 2 - SUNDAY, 20 SEPTEMBER 2026'
     }
     const fullDayText = fullDayMap[String(dayNum)] || `DAY ${dayNum} - SEPTEMBER 2026`
 
@@ -1018,7 +1053,7 @@ class DatabaseAdapter {
       } catch (e) {
         gmt7Iso = now.toISOString().split('T')[0]
       }
-      const dayMap = { '2026-09-02': '1', '2026-09-03': '2', '2026-09-04': '3', '2026-09-05': '4', '2026-09-06': '5' }
+      const dayMap = { '2026-09-19': '1', '2026-09-20': '2' }
       const num = dayMap[gmt7Iso] || '1'
       dayParam = `day-${num}`
     }
@@ -1030,50 +1065,44 @@ class DatabaseAdapter {
     const isPg = this.driverType === 'postgres'
     const isMysql = this.driverType === 'mysql'
     let totalCheckedIn = 0
-    let vipsCheckedIn = 0
     let failedScans = 0
     let totalReservations = 0
 
-    const timeSlots = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
+    const timeSlots = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00']
     const totalCheckedInSlots = new Array(12).fill(0)
-    const vipCheckedInSlots = new Array(12).fill(0)
+    const totalRegisteredSlots = new Array(12).fill(0)
     const failedScanSlots = new Array(12).fill(0)
 
     let scansList = []
 
     if (isPg) {
       const inRes = await this.pgPool.query("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = $1 OR event_day LIKE $2)", [dayTag, `%${dayTag}%`])
-      const vipRes = await this.pgPool.query("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (s.event_day = $1 OR s.event_day LIKE $2) AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')", [dayTag, `%${dayTag}%`])
       const failRes = await this.pgPool.query("SELECT COUNT(*) as count FROM scans WHERE (status = 'INVALID' OR status = 'ALREADY_INSIDE' OR status = 'WRONG_DAY') AND (event_day = $1 OR event_day LIKE $2)", [dayTag, `%${dayTag}%`])
-      const resvRes = await this.pgPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE $1", [`%${dayTag}%`])
+      const resvRes = await this.pgPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE $1 OR selected_dates LIKE $2", [`%${dayTag}%`, `%${dayNum === '1' ? '19' : '20'}%`])
       const scansRes = await this.pgPool.query("SELECT s.*, g.role as guest_role FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.event_day = $1 OR s.event_day LIKE $2", [dayTag, `%${dayTag}%`])
 
       totalCheckedIn = parseInt(inRes.rows[0]?.count || 0, 10)
-      vipsCheckedIn = parseInt(vipRes.rows[0]?.count || 0, 10)
       failedScans = parseInt(failRes.rows[0]?.count || 0, 10)
       totalReservations = parseInt(resvRes.rows[0]?.count || 0, 10)
       scansList = scansRes.rows || []
     } else if (isMysql) {
       const [inRows] = await this.mysqlPool.query("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)", [dayTag, `%${dayTag}%`])
-      const [vipRows] = await this.mysqlPool.query("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (s.event_day = ? OR s.event_day LIKE ?) AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')", [dayTag, `%${dayTag}%`])
       const [failRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM scans WHERE (status = 'INVALID' OR status = 'ALREADY_INSIDE' OR status = 'WRONG_DAY') AND (event_day = ? OR event_day LIKE ?)", [dayTag, `%${dayTag}%`])
-      const [resvRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ?", [`%${dayTag}%`])
+      const [resvRows] = await this.mysqlPool.query("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ? OR selected_dates LIKE ?", [`%${dayTag}%`, `%${dayNum === '1' ? '19' : '20'}%`])
       const [scansRows] = await this.mysqlPool.query("SELECT s.*, g.role as guest_role FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.event_day = ? OR s.event_day LIKE ?", [dayTag, `%${dayTag}%`])
 
       totalCheckedIn = parseInt(inRows[0]?.count || 0, 10)
-      vipsCheckedIn = parseInt(vipRows[0]?.count || 0, 10)
       failedScans = parseInt(failRows[0]?.count || 0, 10)
       totalReservations = parseInt(resvRows[0]?.count || 0, 10)
       scansList = scansRows || []
     } else {
       totalCheckedIn = this.sqliteDb.prepare("SELECT COUNT(DISTINCT guest_phone) as count FROM scans WHERE action = 'check-in' AND status = 'GRANTED' AND (event_day = ? OR event_day LIKE ?)").get(dayTag, `%${dayTag}%`).count
-      vipsCheckedIn = this.sqliteDb.prepare("SELECT COUNT(DISTINCT s.guest_phone) as count FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.action = 'check-in' AND s.status = 'GRANTED' AND (s.event_day = ? OR s.event_day LIKE ?) AND (g.role LIKE '%VIP%' OR s.message LIKE '%VIP%')").get(dayTag, `%${dayTag}%`).count
       failedScans = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM scans WHERE (status = 'INVALID' OR status = 'ALREADY_INSIDE' OR status = 'WRONG_DAY') AND (event_day = ? OR event_day LIKE ?)").get(dayTag, `%${dayTag}%`).count
-      totalReservations = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ?").get(`%${dayTag}%`).count
+      totalReservations = this.sqliteDb.prepare("SELECT COUNT(*) as count FROM ticket_reservations WHERE selected_dates LIKE ? OR selected_dates LIKE ?").get(`%${dayTag}%`, `%${dayNum === '1' ? '19' : '20'}%`).count
       scansList = this.sqliteDb.prepare("SELECT s.*, g.role as guest_role FROM scans s LEFT JOIN guests g ON g.phone = s.guest_phone WHERE s.event_day = ? OR s.event_day LIKE ?").all(dayTag, `%${dayTag}%`)
     }
 
-    // Populate hourly buckets from real scan timestamps (GMT+7 Jakarta Time)
+    // Populate hourly buckets from real scan timestamps (GMT+7 Jakarta Time: 10:00 - 21:00)
     const getJakartaHour = (scannedAt) => {
       if (!scannedAt) return 12
       let str = String(scannedAt)
@@ -1094,13 +1123,10 @@ class DatabaseAdapter {
 
     scansList.forEach(s => {
       const hour = getJakartaHour(s.scanned_at)
-      const slotIdx = Math.min(11, Math.max(0, Math.floor(hour / 2)))
+      const slotIdx = Math.min(11, Math.max(0, hour - 10))
 
       if (s.action === 'check-in' && s.status === 'GRANTED') {
         totalCheckedInSlots[slotIdx]++
-        if ((s.guest_role && s.guest_role.includes('VIP')) || (s.message && s.message.includes('VIP'))) {
-          vipCheckedInSlots[slotIdx]++
-        }
       } else if (s.status === 'INVALID' || s.status === 'ALREADY_INSIDE' || s.status === 'WRONG_DAY') {
         failedScanSlots[slotIdx]++
       }
@@ -1108,25 +1134,35 @@ class DatabaseAdapter {
 
     const upcomingArrivals = Math.max(0, totalReservations - totalCheckedIn)
 
-    // Upcoming arrivals projected throughout peak event hours (10:00 - 20:00)
-    const upcomingSlots = [0, 0, 0, 0, 0, Math.ceil(upcomingArrivals * 0.25), Math.ceil(upcomingArrivals * 0.35), Math.ceil(upcomingArrivals * 0.25), Math.ceil(upcomingArrivals * 0.15), 0, 0, 0]
+    // Upcoming arrivals projected throughout event hours (10:00 - 21:00)
+    const upcomingSlots = [
+      Math.ceil(upcomingArrivals * 0.05),
+      Math.ceil(upcomingArrivals * 0.08),
+      Math.ceil(upcomingArrivals * 0.10),
+      Math.ceil(upcomingArrivals * 0.10),
+      Math.ceil(upcomingArrivals * 0.12),
+      Math.ceil(upcomingArrivals * 0.15),
+      Math.ceil(upcomingArrivals * 0.15),
+      Math.ceil(upcomingArrivals * 0.10),
+      Math.ceil(upcomingArrivals * 0.08),
+      Math.ceil(upcomingArrivals * 0.05),
+      Math.ceil(upcomingArrivals * 0.02),
+      0
+    ]
 
     const series = {
       totalCheckedIn: timeSlots.map((slot, idx) => ({ slot, count: totalCheckedInSlots[idx] })),
       upcomingArrivals: timeSlots.map((slot, idx) => ({ slot, count: upcomingSlots[idx] })),
-      vipsCheckedIn: timeSlots.map((slot, idx) => ({ slot, count: vipCheckedInSlots[idx] })),
+      totalRegistered: timeSlots.map((slot, idx) => ({ slot, count: Math.ceil(totalReservations / 12) })),
       failedScans: timeSlots.map((slot, idx) => ({ slot, count: failedScanSlots[idx] }))
     }
 
     const capacity = await this.getMaxCapacity()
-    const dayMap = {
-      '1': 'DAY 1 - WEDNESDAY, 02 SEPTEMBER 2026',
-      '2': 'DAY 2 - THURSDAY, 03 SEPTEMBER 2026',
-      '3': 'DAY 3 - FRIDAY, 04 SEPTEMBER 2026',
-      '4': 'DAY 4 - SATURDAY, 05 SEPTEMBER 2026',
-      '5': 'DAY 5 - SUNDAY, 06 SEPTEMBER 2026'
+    const dayNameMap = {
+      '1': 'DAY 1 - SATURDAY, 19 SEPTEMBER 2026',
+      '2': 'DAY 2 - SUNDAY, 20 SEPTEMBER 2026'
     }
-    const fullDayText = dayMap[String(dayNum)] || `DAY ${dayNum} - SEPTEMBER 2026`
+    const fullDayText = dayNameMap[String(dayNum)] || `DAY ${dayNum} - SEPTEMBER 2026`
 
     return {
       occupancy: {
@@ -1137,7 +1173,7 @@ class DatabaseAdapter {
       summary: {
         totalCheckedIn,
         upcomingArrivals,
-        vipsCheckedIn,
+        totalRegistered: totalReservations,
         failedScans
       },
       series,

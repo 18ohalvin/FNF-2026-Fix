@@ -32,7 +32,7 @@
 
   <!-- Guest Registration PWA -->
   <div v-else class="app-wrapper" :class="{ 'landing-mode': currentPage === 'landing' }">
-    <!-- Persistent Static Global Header with 707 Logo & Sponsor Logo for Registration Flow -->
+    <!-- Persistent Static Global Header with Right-Aligned 707 Black Logo -->
     <AppHeader :is-landing="currentPage === 'landing'" @home="handleGoHome" />
 
     <!-- PAGE 0: Landing Page (Node 241:1383) -->
@@ -89,7 +89,7 @@
     <!-- PAGE 3: Date Selection Screen -->
     <template v-else-if="currentPage === 'select-dates'">
       <SelectDatesPage
-        :user-role="activeUserData?.role || (registrationType === 'public' ? 'PUBLIC ACCESS' : 'VIP GUEST')"
+        :user-role="activeUserData?.role || 'GUEST'"
         :already-booked-dates="existingBookedDates"
         @submit="handleDatesSubmit"
       />
@@ -150,7 +150,7 @@ import {
 
 // Navigation & Screen State
 const currentPage = ref('landing') // 'landing' | 'whatsapp-check' | 'review-details' | 'select-dates' | 'ticket-summary' | 'scanner' | 'analytics' | 'database' | 'login'
-const registrationType = ref('vip') // 'vip' | 'public'
+const registrationType = ref('guest')
 const countryCode = ref('+62')
 const phoneNumber = ref('')
 const isWhyModalOpen = ref(false)
@@ -169,15 +169,8 @@ const isStaffAuthenticated = () => {
 }
 
 const checkRegistrationTypeFromUrl = () => {
-  const path = window.location.pathname.toLowerCase()
-  const params = new URLSearchParams(window.location.search)
-  if (path.startsWith('/public') || params.get('type') === 'public') {
-    registrationType.value = 'public'
-    selectedEventDates.value = ['day-2']
-  } else {
-    registrationType.value = 'vip'
-    selectedEventDates.value = ['day-1']
-  }
+  registrationType.value = 'guest'
+  selectedEventDates.value = ['day-1']
 }
 
 // Lock scroll strictly when on landing page to ensure single-screen fit without swipe/bounce
@@ -387,7 +380,7 @@ const handleCheckNumber = async () => {
 
   isCheckingDatabase.value = true
   const rawDigits = phoneNumber.value.replace(/\D/g, '')
-  const defaultRole = registrationType.value === 'public' ? 'PUBLIC ACCESS' : 'VIP GUEST'
+  const defaultRole = 'GUEST'
 
   try {
     const result = await apiCheckPhone(rawDigits)

@@ -25,10 +25,8 @@
           <div class="info-block">
             <span class="info-label">VENUE</span>
             <div class="info-value venue-value">
-              <p class="venue-line">PLAZA SENAYAN</p>
-              <p class="venue-line">
-                <span>4</span><span class="superscript-th">th</span><span> FLOOR</span>
-              </p>
+              <p class="venue-line">LA MODA</p>
+              <p class="venue-line">PLAZA INDONESIA</p>
             </div>
           </div>
         </div>
@@ -58,17 +56,31 @@
           </span>
         </div>
 
-        <!-- Row 4: Selected Access Dates -->
+        <!-- Row 4: Selected Access Dates (Separated by Date - Figma 541:543) -->
         <div class="access-dates-block">
-          <span class="access-valid-label">ACCESS VALID FOR:</span>
-          <div class="selected-dates-list">
+          <span class="access-valid-label">VALID FOR</span>
+          <div class="date-groups-wrapper">
             <div
-              v-for="item in resolvedSelectedDates"
-              :key="item.id"
-              class="date-summary-card"
+              v-for="group in dateGroups"
+              :key="group.date"
+              class="summary-date-group"
             >
-              <span class="date-text">{{ item.date }}</span>
-              <span class="day-text">{{ item.day }}</span>
+              <h3 class="summary-date-title">{{ group.date }}</h3>
+              <div class="summary-slots-list">
+                <div
+                  v-for="slot in group.slots"
+                  :key="slot.id"
+                  class="date-summary-card"
+                >
+                  <div class="date-summary-left">
+                    <span class="slot-time-text">{{ slot.time }}</span>
+                  </div>
+                  <div class="date-summary-right">
+                    <span class="slot-session-title">{{ slot.session || 'PLAYBACK' }}</span>
+                    <span v-if="slot.sessionSub" class="slot-session-sub">{{ slot.sessionSub }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -101,9 +113,9 @@ import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import CtaButton from './CtaButton.vue'
 import UpdateEmailModal from './UpdateEmailModal.vue'
-import logo707Black from '../assets/logo-707.png'
-import adBannerImg from '../assets/ad-banner.png'
-import { LOGO_707_BASE64, LOGO_707_WHITE_BASE64, AD_BANNER_BASE64, SPONSOR_PROMO_URL } from '../utils/clientAssets'
+import epassBgImg from '../assets/epass-bg.png'
+import { LOGO_707_WHITE_BASE64, ON_LOGO_WHITE_BASE64, SPONSOR_PROMO_URL } from '../utils/clientAssets'
+import { resolveArrivalSlots } from '../utils/dateHelper'
 
 const props = defineProps({
   userDetails: {
@@ -114,7 +126,7 @@ const props = defineProps({
       lastName: 'DECOROUS',
       email: 'alvin@sosco.id',
       phone: '081707909707',
-      role: 'VIP GUEST'
+      role: 'GUEST'
     })
   },
   selectedDates: {
@@ -144,35 +156,13 @@ const handleEmailUpdated = (newEmail) => {
 
 // Resolve selected event date objects for display
 const resolvedSelectedDates = computed(() => {
-  const datesMap = {
-    'day-1': { id: 'day-1', date: '2 September 2026', day: 'Day 1 (VIP)' },
-    'day-2': { id: 'day-2', date: '3 September 2026', day: 'Day 2' },
-    'day-3': { id: 'day-3', date: '4 September 2026', day: 'Day 3' },
-    'day-4': { id: 'day-4', date: '5 September 2026', day: 'Day 4' },
-    'day-5': { id: 'day-5', date: '6 September 2026', day: 'Day 5' }
-  }
-
   const rawDates = (Array.isArray(props.selectedDates) && props.selectedDates.length > 0)
     ? props.selectedDates
     : (Array.isArray(props.selectedDateIds) && props.selectedDateIds.length > 0)
       ? props.selectedDateIds
-      : (props.userDetails?.selectedDates || props.userDetails?.selected_dates || ['day-1'])
+      : (props.userDetails?.selectedDates || props.userDetails?.selected_dates || ['19sep-1030'])
 
-  let arr = Array.isArray(rawDates) ? rawDates : []
-  if (typeof rawDates === 'string') {
-    try {
-      arr = JSON.parse(rawDates)
-    } catch (e) {
-      arr = rawDates.split(',').map(s => s.trim())
-    }
-  }
-
-  return arr.map(key => {
-    if (typeof key === 'object' && key.day) {
-      return key
-    }
-    return datesMap[key] || { id: key, date: 'Event Date', day: key.toUpperCase() }
-  })
+  return resolveArrivalSlots(rawDates)
 })
 
 // Split guest name into lines (e.g. Line 1: "MR. ALVIN", Line 2: "DECOROUS")
@@ -209,10 +199,9 @@ const formattedGuestName = computed(() => {
   return `${sal} ${first} ${last}`.trim()
 })
 
-// Guest Type short: "VIP" if VIP GUEST, else "PUBLIC"
+// Guest Type short: Always "GUEST"
 const guestTypeShort = computed(() => {
-  const role = props.userDetails.role || 'VIP GUEST'
-  return role.toUpperCase().includes('VIP') ? 'VIP' : 'PUBLIC'
+  return 'GUEST'
 })
 
 // Access ID Format: 3-digit unique alphanumeric code (e.g. 707, K9X)
@@ -223,65 +212,64 @@ const computedAccessId = computed(() => {
   return '707'
 })
 
-// Computed multi-tier VALID FOR lines (e.g. "VIP: DAY 1", "PUBLIC: ALL DAY" or "PUBLIC: DAY 2, 4")
-const validForLines = computed(() => {
-  const isVip = (props.userDetails.role || '').toUpperCase().includes('VIP')
-  const rawDates = (Array.isArray(props.selectedDates) && props.selectedDates.length > 0)
-    ? props.selectedDates
-    : (Array.isArray(props.selectedDateIds) && props.selectedDateIds.length > 0)
-      ? props.selectedDateIds
-      : (props.userDetails?.selectedDates || props.userDetails?.selected_dates || ['day-1'])
-
-  let arr = Array.isArray(rawDates) ? rawDates : []
-  if (typeof rawDates === 'string') {
-    try {
-      arr = JSON.parse(rawDates)
-    } catch (e) {
-      arr = rawDates.split(',').map(s => s.trim())
-    }
+const dateGroups = computed(() => {
+  const slots = resolvedSelectedDates.value
+  if (!slots || slots.length === 0) {
+    return [
+      {
+        date: '19 SEPT 2026',
+        slots: [{ id: 'default', time: '16:30 - 17:00', session: 'PLAYBACK', sessionSub: '' }]
+      }
+    ]
   }
 
-  const normalized = arr.map(k => {
-    if (typeof k === 'object' && k.id) return String(k.id).toLowerCase().trim()
-    return String(k).toLowerCase().trim()
+  const groups = []
+  const map = new Map()
+
+  slots.forEach(slot => {
+    let dStr = '19 SEPT 2026'
+    if (slot.dateId === '20-sep' || slot.dateIso === '2026-09-20' || slot.id?.startsWith('20sep') || slot.date?.startsWith('20')) {
+      dStr = '20 SEPT 2026'
+    } else if (slot.dateId === '19-sep' || slot.dateIso === '2026-09-19' || slot.id?.startsWith('19sep') || slot.date?.startsWith('19')) {
+      dStr = '19 SEPT 2026'
+    } else if (slot.date) {
+      dStr = slot.date.toUpperCase()
+    }
+
+    if (!map.has(dStr)) {
+      const g = { date: dStr, slots: [] }
+      map.set(dStr, g)
+      groups.push(g)
+    }
+    map.get(dStr).slots.push(slot)
   })
 
-  const hasDay1 = normalized.some(k => k === 'day-1' || k === '1' || k.includes('day 1'))
-  const publicDays = ['day-2', 'day-3', 'day-4', 'day-5'].filter(d => 
-    normalized.some(k => k === d || k === d.replace('day-', '') || k === d.replace('-', ' '))
-  )
+  // Ensure chronological order: 19 SEPT then 20 SEPT
+  groups.sort((a, b) => {
+    if (a.date.includes('19') && b.date.includes('20')) return -1
+    if (a.date.includes('20') && b.date.includes('19')) return 1
+    return 0
+  })
 
-  const lines = []
-  if (hasDay1) {
-    lines.push('VIP: DAY 1')
-  }
-  if (publicDays.length === 4) {
-    lines.push('PUBLIC: ALL DAY')
-  } else if (publicDays.length > 0) {
-    const nums = publicDays.map(d => d.replace('day-', '')).join(', ')
-    lines.push(`PUBLIC: DAY ${nums}`)
-  }
-
-  if (lines.length === 0) {
-    lines.push(isVip ? 'VIP: DAY 1' : 'PUBLIC: DAY 2')
-  }
-
-  return lines
+  return groups
 })
 
-// Generate & Download high-resolution E-Pass PDF with Clickable Sponsor Promo Link
+// Generate & Download high-resolution E-Pass PDF matching Figma 540:419
 const handleDownloadEPassPdf = async () => {
   if (isDownloading.value) return
   isDownloading.value = true
 
   try {
-    const isVip = (props.userDetails.role || '').toUpperCase().includes('VIP')
     const accessId = computedAccessId.value
+    const groups = dateGroups.value
 
-    // High-resolution retina scale for ultra-crisp mobile viewing & printing
-    const scale = 3
+    // Calculate dynamic height based on slots count
+    let totalSlots = 0
+    groups.forEach(g => { totalSlots += g.slots.length })
+    const baseHeight = 680 + (groups.length * 28) + (totalSlots * 56)
+    const height = Math.max(760, baseHeight)
     const width = 402
-    const height = 860
+    const scale = 3
 
     const canvas = document.createElement('canvas')
     canvas.width = width * scale
@@ -294,7 +282,6 @@ const handleDownloadEPassPdf = async () => {
       const img = new Image()
       img.onload = () => resolve(img)
       img.onerror = () => {
-        // Fallback retry
         const retryImg = new Image()
         retryImg.onload = () => resolve(retryImg)
         retryImg.onerror = () => resolve(null)
@@ -303,41 +290,34 @@ const handleDownloadEPassPdf = async () => {
       img.src = src
     })
 
-    // 1. Card Background Fill (Pure Black for VIP, Brutalist Light Grey #F2F2F2 for Public)
-    ctx.fillStyle = isVip ? '#000000' : '#f2f2f2'
-    ctx.fillRect(0, 0, width, height)
-
-    // 2. Header: 707 Logo (Infallible embedded Base64)
-    const logoSrc = isVip ? LOGO_707_WHITE_BASE64 : LOGO_707_BASE64
-    const logoImg = await loadImage(logoSrc)
-    if (logoImg) {
-      ctx.drawImage(logoImg, 24, 15.5, 53, 17)
+    // 1. Background Artwork (Figma 540:419)
+    const bgImg = await loadImage(epassBgImg)
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, width, height)
+    } else {
+      ctx.fillStyle = '#4a251b'
+      ctx.fillRect(0, 0, width, height)
     }
 
-    // 3. Title Row (Y: 76px)
-    ctx.font = "300 18px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillStyle = isVip ? '#ffffff' : '#000000'
-    ctx.textAlign = 'left'
-    ctx.fillText(isVip ? 'VIP GUEST' : 'PUBLIC GUEST', 24, 76)
+    // 2. Header: 707 White Logo on top right (w: 52, h: 16)
+    const logo707 = await loadImage(LOGO_707_WHITE_BASE64)
+    if (logo707) {
+      ctx.drawImage(logo707, 326, 24, 52, 16)
+    }
 
-    // Right Title: "YOUR ACCESS"
-    ctx.font = "400 18px 'Helvetica Neue', Arial, sans-serif"
-    ctx.textAlign = 'right'
-    ctx.fillText('YOUR ACCESS', 378, 76)
+    // 3. On Brand White Logo on the left (w: 30, h: 61)
+    const logoOn = await loadImage(ON_LOGO_WHITE_BASE64)
+    if (logoOn) {
+      ctx.drawImage(logoOn, 24, 56, 30, 61)
+    }
 
-    // 4. QR Code Box (X: 24, Y: 108, Size: 195, Radius: 5)
+    // 4. QR Code Box (X: 24, Y: 133, Size: 156, Radius: 5)
     const qrBoxX = 24
-    const qrBoxY = 108
-    const qrBoxSize = 195
+    const qrBoxY = 133
+    const qrBoxSize = 156
     const qrRadius = 5
 
     const drawRoundRect = (c, x, y, w, h, r) => {
-      if (typeof c.roundRect === 'function') {
-        c.beginPath()
-        c.roundRect(x, y, w, h, r)
-        c.closePath()
-        return
-      }
       c.beginPath()
       c.moveTo(x + r, y)
       c.arcTo(x + w, y, x + w, y + h, r)
@@ -351,7 +331,7 @@ const handleDownloadEPassPdf = async () => {
     drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
     ctx.fill()
 
-    ctx.strokeStyle = isVip ? '#ffffff' : '#000000'
+    ctx.strokeStyle = '#000000'
     ctx.lineWidth = 0.5
     drawRoundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius)
     ctx.stroke()
@@ -363,61 +343,93 @@ const handleDownloadEPassPdf = async () => {
     })
     const qrImg = await loadImage(qrDataUrl)
     if (qrImg) {
-      ctx.drawImage(qrImg, qrBoxX + 13, qrBoxY + 13, 169, 169)
+      ctx.drawImage(qrImg, qrBoxX + 10, qrBoxY + 10, 136, 136)
     }
 
-    // 5. Identity & Summary Grid (Y: 344)
+    // 5. Identity Details in White (Side-by-side with QR)
+    const infoX = 208
     ctx.textAlign = 'left'
-    ctx.fillStyle = isVip ? '#ffffff' : '#000000'
+    ctx.fillStyle = '#ffffff'
+    
+    // GUEST NAME
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('GUEST NAME', 24, 344)
-    ctx.fillText('VENUE', 216, 344)
-
-    // Guest Name Splitting: Ensures 2-word names occupy Line 1 and Line 2 without blank space
-    const nameLines = guestNameLines.value
-    const nameLine1 = nameLines[0] || formattedGuestName.value || 'GUEST'
-    const nameLine2 = nameLines[1] || ''
+    ctx.fillText('GUEST NAME', infoX, 148)
 
     ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText(nameLine1, 24, 368)
-    if (nameLine2) {
-      ctx.fillText(nameLine2, 24, 390)
+    const nameLines = guestNameLines.value
+    const name1 = nameLines[0] || formattedGuestName.value || 'GUEST'
+    const name2 = nameLines[1] || ''
+    ctx.fillText(name1, infoX, 172)
+    if (name2) {
+      ctx.fillText(name2, infoX, 192)
     }
 
-    ctx.fillText('PLAZA SENAYAN', 216, 368)
-    ctx.fillText('4th FLOOR', 216, 390)
-
-    // Row 2: VALID FOR (Col 1, X: 24) & ACCESS ID (Col 2, X: 216) (Y: 438)
+    // VENUE
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('VALID FOR', 24, 438)
-    ctx.fillText('ACCESS ID', 216, 438)
+    ctx.fillText('VENUE', infoX, 230)
 
-    ctx.font = "500 14px 'Helvetica Neue', Arial, sans-serif"
-    const lines = validForLines.value
-    if (lines.length === 1) {
-      ctx.fillText(lines[0], 24, 462)
-    } else {
-      ctx.fillText(lines[0], 24, 458)
-      ctx.fillText(lines[1], 24, 478)
-    }
-    ctx.fillText(accessId, 216, 462)
+    ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('LA MODA PLAZA', infoX, 254)
+    ctx.fillText('INDONESIA', infoX, 274)
 
-    // 6. Ad Banner Image (Infallible embedded Base64, Y: 510, X: 24, W: 354, H: 177)
-    const banner = await loadImage(AD_BANNER_BASE64)
-    if (banner) {
-      ctx.drawImage(banner, 24, 510, 354, 177)
-    }
-
-    // 7. Terms & Conditions (Y: 720, X: 24)
+    // 6. VALID FOR Section
     ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('TERMS & CONDITIONS:', 24, 720)
+    ctx.fillText('VALID FOR', 24, 320)
+
+    let curY = 346
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i]
+
+      // Date Title
+      ctx.font = "500 16px 'Helvetica Neue', Arial, sans-serif"
+      ctx.textAlign = 'left'
+      ctx.fillText(group.date, 24, curY)
+      curY += 16
+
+      // Slot Cards
+      for (const slot of group.slots) {
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 1
+        ctx.strokeRect(24, curY, 354, 48)
+
+        // Time on Left
+        ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
+        ctx.textAlign = 'left'
+        ctx.fillText(slot.time, 48, curY + 29)
+
+        // Session on Right
+        ctx.textAlign = 'right'
+        if (slot.sessionSub) {
+          ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
+          ctx.fillText(slot.session || 'LIVE GUIDED LED', 354, curY + 20)
+          ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
+          ctx.fillText(slot.sessionSub, 354, curY + 36)
+        } else {
+          ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
+          ctx.fillText(slot.session || 'PLAYBACK', 354, curY + 29)
+        }
+
+        curY += 56
+      }
+
+      // Add spacious gap between date groups
+      curY += (i < groups.length - 1) ? 28 : 16
+    }
+
+    // 7. Terms & Conditions
+    curY += 16
+    ctx.textAlign = 'left'
+    ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
+    ctx.fillText('TERMS & CONDITIONS:', 24, curY)
+
+    curY += 20
     ctx.font = "300 11px 'Helvetica Neue', Arial, sans-serif"
-    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, 744)
-    ctx.fillText('Present this ticket at the entrance for scanning.', 24, 764)
-    ctx.fillText('No re-entry once you have exited the venue.', 24, 784)
-    ctx.fillText('Management is not liable for loss of personal belongings.', 24, 804)
+    ctx.fillText('Valid for one (1) person only — non-transferable.', 24, curY)
+    ctx.fillText('Present this ticket at the entrance for scanning.', 24, curY + 16)
+    ctx.fillText('No re-entry once you have exited the venue.', 24, curY + 32)
+    ctx.fillText('Management is not liable for loss of personal belongings.', 24, curY + 48)
 
-    // 8. Generate PDF with Clickable Link
+    // 8. Output PDF
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -425,12 +437,7 @@ const handleDownloadEPassPdf = async () => {
       format: [width, height]
     })
     pdf.addImage(imgData, 'PNG', 0, 0, width, height, '', 'FAST')
-
-    // Clickable Hyperlink Annotation over Sponsor Promo Banner
-    pdf.link(24, 510, 354, 177, { url: SPONSOR_PROMO_URL })
-    
-    // Save as PDF file
-    pdf.save(`FNF-2026-${isVip ? 'VIP' : 'PUBLIC'}-PASS-${accessId}.pdf`)
+    pdf.save(`707-EPASS-${accessId}.pdf`)
     hasDownloaded.value = true
   } catch (err) {
     console.error('Error generating PDF pass download:', err)
@@ -563,19 +570,42 @@ const handleDownloadEPassPdf = async () => {
 .access-dates-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 
 .access-valid-label {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 300;
   color: #000000;
   line-height: 16px;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.selected-dates-list {
+.date-groups-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.summary-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-date-title {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #000000;
+  line-height: 20px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.summary-slots-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -592,20 +622,45 @@ const handleDownloadEPassPdf = async () => {
   box-sizing: border-box;
 }
 
-.date-text {
+.date-summary-left {
+  display: flex;
+  align-items: center;
+}
+
+.slot-time-text {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-weight: 400;
   color: #000000;
   line-height: 14px;
+  white-space: nowrap;
 }
 
-.day-text {
+.date-summary-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.slot-session-title {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-weight: 400;
   color: #000000;
-  line-height: 14px;
+  line-height: 16px;
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
 }
 
+.slot-session-sub {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  color: #666666;
+  line-height: 16px;
+  text-align: right;
+  white-space: nowrap;
+}
 </style>

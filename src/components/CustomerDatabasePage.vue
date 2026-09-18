@@ -101,14 +101,11 @@
             <div class="filter-menu-item" :class="{ active: currentFilter === '' }" @click="applyFilter('')">
               ALL GUESTS
             </div>
-            <div class="filter-menu-item" :class="{ active: currentFilter === 'VIP' }" @click="applyFilter('VIP')">
-              VIP GUESTS
-            </div>
-            <div class="filter-menu-item" :class="{ active: currentFilter === 'PUBLIC' }" @click="applyFilter('PUBLIC')">
-              PUBLIC GUESTS
-            </div>
             <div class="filter-menu-item" :class="{ active: currentFilter === 'CHECKED_IN' }" @click="applyFilter('CHECKED_IN')">
               CHECKED-IN
+            </div>
+            <div class="filter-menu-item" :class="{ active: currentFilter === 'NOT_CHECKED_IN' }" @click="applyFilter('NOT_CHECKED_IN')">
+              NOT CHECKED-IN
             </div>
           </div>
         </div>
@@ -235,10 +232,10 @@
               </div>
             </div>
 
-            <!-- Guest Type (Figma: VIP / REGULAR) -->
+            <!-- Guest Type (Figma: GUEST) -->
             <div class="col-type">
               <span class="guest-type-text">
-                {{ guest.role?.toUpperCase().includes('VIP') ? 'VIP' : 'PUBLIC' }}
+                GUEST
               </span>
             </div>
 
@@ -388,6 +385,7 @@ import {
 import CalendarModal from './CalendarModal.vue'
 import EditGuestModal from './EditGuestModal.vue'
 import ViewEPassModal from './ViewEPassModal.vue'
+import { resolveArrivalSlots } from '../utils/dateHelper.js'
 
 const emit = defineEmits(['nav-analytics', 'nav-scanner', 'logout'])
 
@@ -548,19 +546,17 @@ const applyFilter = (filterType) => {
 }
 
 const formatTicketNumbers = (selectedDatesJson) => {
-  if (!selectedDatesJson) return ['1', '2', '3', '4']
+  if (!selectedDatesJson) return ['1', '2']
   try {
-    const dates = typeof selectedDatesJson === 'string' ? JSON.parse(selectedDatesJson) : selectedDatesJson
-    if (Array.isArray(dates) && dates.length > 0) {
-      return dates.map((d, i) => {
-        if (typeof d === 'string' && d.startsWith('day-')) {
-          return d.replace('day-', '')
-        }
-        return `${i + 1}`
+    const slots = resolveArrivalSlots(selectedDatesJson)
+    if (Array.isArray(slots) && slots.length > 0) {
+      return slots.map(s => {
+        const dNum = s.dateId === '20-sep' || s.id?.startsWith('20sep') || s.date?.includes('20') ? '2' : '1'
+        return `${dNum} (${s.time?.split(' - ')[0] || s.time || ''})`
       })
     }
   } catch (e) {}
-  return ['1', '2', '3', '4']
+  return ['1', '2']
 }
 
 const formatScanTime = (scannedAt, isCheckedIn) => {
@@ -579,7 +575,7 @@ const formatScanTime = (scannedAt, isCheckedIn) => {
       minute: '2-digit',
       hour12: true
     })
-    return `Day 1 - ${timeStr}`
+    return timeStr
   } catch (e) {
     return 'Checked In'
   }
@@ -615,7 +611,7 @@ const handleExportData = async () => {
       'Email Address',
       'Role',
       'Access ID',
-      'Registered Days',
+      'Registered Days & Slots',
       'Check-In Status',
       'Last Scanned Time (GMT+7)',
       'Registration Date (GMT+7)'
@@ -632,17 +628,14 @@ const handleExportData = async () => {
     const formatRegisteredDays = (selectedDates) => {
       if (!selectedDates) return 'N/A'
       try {
-        const arr = typeof selectedDates === 'string' ? JSON.parse(selectedDates) : selectedDates
-        if (Array.isArray(arr) && arr.length > 0) {
-          return arr.map(d => {
-            const s = String(d).toLowerCase().trim()
-            if (s.includes('1')) return 'Day 1 (VIP)'
-            if (s.includes('2')) return 'Day 2'
-            if (s.includes('3')) return 'Day 3'
-            if (s.includes('4')) return 'Day 4'
-            if (s.includes('5')) return 'Day 5'
-            return String(d)
-          }).join(', ')
+        const slots = resolveArrivalSlots(selectedDates)
+        if (Array.isArray(slots) && slots.length > 0) {
+          return slots.map(s => {
+            const d = s.date?.includes('20') || s.id?.startsWith('20sep') ? '20 Sep' : '19 Sep'
+            const session = s.session || 'PLAYBACK'
+            const artist = s.sessionSub ? ` (${s.sessionSub})` : ''
+            return `${d} ${s.time} [${session}${artist}]`
+          }).join('; ')
         }
       } catch (e) {}
       return String(selectedDates)
@@ -666,7 +659,7 @@ const handleExportData = async () => {
         escapeCsv(phoneFormatted),
         escapeCsv(g.email || 'N/A'),
         escapeCsv(g.instagram || 'N/A'),
-        escapeCsv(g.role || (g.role?.toUpperCase().includes('VIP') ? 'VIP GUEST' : 'PUBLIC ACCESS')),
+        escapeCsv(g.role || 'GUEST'),
         escapeCsv(g.access_id || 'N/A'),
         escapeCsv(days),
         escapeCsv(checkInStatus),

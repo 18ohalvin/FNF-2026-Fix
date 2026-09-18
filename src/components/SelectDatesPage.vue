@@ -2,55 +2,50 @@
   <div class="select-dates-wrapper">
     <!-- Main Content -->
     <main class="select-dates-content">
-      <!-- Title Row -->
+      <!-- Title Row (Figma Node 539:357) -->
       <div class="title-row">
-        <h1 class="page-title">SELECT DATES</h1>
-        <span class="user-role-badge">{{ userRole }}</span>
+        <h1 class="page-title-left">GUEST ACCESS</h1>
+        <span class="page-title-right">SELECT ARRIVALS</span>
       </div>
 
-      <!-- VIP Access Section (Day 1) -->
-      <section class="dates-section">
-        <div class="section-header">
-          <h2 class="section-title">VIP ACCESS</h2>
-          <p class="section-subtitle">Exclusive VIP access day</p>
-        </div>
+      <!-- Date Sections Container (Figma Node 539:360 & 539:366) -->
+      <div class="date-groups-container">
+        <section
+          v-for="group in dateGroups"
+          :key="group.id"
+          class="dates-section"
+        >
+          <!-- Section Header: Date + Subtitle -->
+          <div class="section-header">
+            <h2 class="section-date">{{ group.date }}</h2>
+            <p class="section-subtitle">{{ group.subtitle }} (Max 2 slots)</p>
+          </div>
 
-        <div class="options-list">
-          <DateOptionItem
-            v-for="item in vipDates"
-            :key="item.id"
-            :date="item.date"
-            :day="item.day"
-            :is-selected="selectedDates.includes(item.id)"
-            :disabled="isItemDisabled(item)"
-            :is-passed="isPassedDate(item.date)"
-            :note="getItemNote(item)"
-            @toggle="toggleDate(item.id)"
-          />
-        </div>
-      </section>
+          <!-- Slots List -->
+          <div class="options-list">
+            <DateOptionItem
+              v-for="slot in group.slots"
+              :key="slot.id"
+              :time="slot.time"
+              :session="slot.session"
+              :session-sub="slot.sessionSub"
+              :is-selected="selectedDates.includes(slot.id)"
+              :disabled="isItemDisabled(slot)"
+              :is-full="isSlotFull(slot.id)"
+              :is-passed="isPassedSlot(slot, group.dateIso)"
+              :note="getItemNote(slot, group.dateIso)"
+              @toggle="toggleSlot(slot.id, group.id)"
+            />
+          </div>
+        </section>
+      </div>
 
-      <!-- Public Access Section (Day 2 - 5) -->
-      <section class="dates-section public-section">
-        <div class="section-header">
-          <h2 class="section-title">PUBLIC ACCESS</h2>
-          <p class="section-subtitle">Day 2 to Day 5 access</p>
+      <!-- Quota Notice / Warning Message -->
+      <Transition name="fade">
+        <div v-if="quotaWarning" class="quota-warning-banner">
+          {{ quotaWarning }}
         </div>
-
-        <div class="options-list">
-          <DateOptionItem
-            v-for="item in publicDates"
-            :key="item.id"
-            :date="item.date"
-            :day="item.day"
-            :is-selected="selectedDates.includes(item.id)"
-            :disabled="isItemDisabled(item)"
-            :is-passed="isPassedDate(item.date)"
-            :note="getItemNote(item)"
-            @toggle="toggleDate(item.id)"
-          />
-        </div>
-      </section>
+      </Transition>
     </main>
 
     <!-- Sticky Bottom CTA Button -->
@@ -67,11 +62,13 @@
 import { ref, computed, onMounted } from 'vue'
 import DateOptionItem from './DateOptionItem.vue'
 import CtaButton from './CtaButton.vue'
+import { EVENT_DATE_GROUPS, EVENT_ARRIVAL_SLOTS, MAX_SLOT_CAPACITY, MAX_SLOTS_PER_DAY } from '../utils/dateHelper'
+import { apiGetSlotCapacities } from '../api/client'
 
 const props = defineProps({
   userRole: {
     type: String,
-    default: 'VIP GUEST'
+    default: 'GUEST'
   },
   alreadyBookedDates: {
     type: Array,
@@ -81,32 +78,29 @@ const props = defineProps({
 
 const emit = defineEmits(['submit'])
 
-const isVipGuest = computed(() => {
-  return (props.userRole || '').toUpperCase().includes('VIP')
-})
+const dateGroups = EVENT_DATE_GROUPS
 
-// Day 1 for VIP
-const vipDates = [
-  { id: 'day-1', date: '2 September 2026', day: 'Day 1' }
-]
-
-// Day 2-5 for Public Guest
-const publicDates = [
-  { id: 'day-2', date: '3 September 2026', day: 'Day 2' },
-  { id: 'day-3', date: '4 September 2026', day: 'Day 3' },
-  { id: 'day-4', date: '5 September 2026', day: 'Day 4' },
-  { id: 'day-5', date: '6 September 2026', day: 'Day 5' }
-]
-
-// User can pick one to all allowed days
+// User can pick up to 2 arrival slots per day (max 4 total)
 const selectedDates = ref([])
 const isSubmitting = ref(false)
+const slotCapacities = ref({})
+const quotaWarning = ref('')
+let warningTimer = null
 
-// Function to check if an event date has passed relative to current date
-const isPassedDate = (dateStr) => {
+const showWarning = (msg) => {
+  quotaWarning.value = msg
+  if (warningTimer) clearTimeout(warningTimer)
+  warningTimer = setTimeout(() => {
+    quotaWarning.value = ''
+  }, 3500)
+}
+
+// Function to check if a slot date has passed
+const isPassedSlot = (slot, dateIso) => {
+  if (!dateIso) return false
   const now = new Date()
   const todayZero = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const dateObj = new Date(dateStr)
+  const dateObj = new Date(dateIso)
   if (!isNaN(dateObj.getTime())) {
     const targetZero = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).getTime()
     return targetZero < todayZero
@@ -114,16 +108,23 @@ const isPassedDate = (dateStr) => {
   return false
 }
 
-const getItemNote = (item) => {
-  if (item.id === 'day-1' && !isVipGuest.value) return 'VIP Only'
-  if (isPassedDate(item.date)) return 'PASSED'
-  if (props.alreadyBookedDates.includes(item.id)) return 'BOOKED'
+// Check if a slot has reached maximum capacity of 25
+const isSlotFull = (slotId) => {
+  if (props.alreadyBookedDates.includes(slotId)) return false
+  const bookedCount = slotCapacities.value[slotId] || 0
+  return bookedCount >= MAX_SLOT_CAPACITY
+}
+
+const getItemNote = (slot, dateIso) => {
+  if (isPassedSlot(slot, dateIso)) return 'PASSED'
+  if (props.alreadyBookedDates.includes(slot.id)) return 'BOOKED'
+  if (isSlotFull(slot.id)) return 'FULL'
   return ''
 }
 
-const isItemDisabled = (item) => {
-  if (item.id === 'day-1' && !isVipGuest.value) return true
-  if (props.alreadyBookedDates.includes(item.id)) return true
+const isItemDisabled = (slot) => {
+  if (props.alreadyBookedDates.includes(slot.id)) return true
+  if (isSlotFull(slot.id)) return true
   return false
 }
 
@@ -136,36 +137,54 @@ const isCtaActive = computed(() => {
   return true
 })
 
-onMounted(() => {
+onMounted(async () => {
+  // 1. Fetch live slot capacities
+  try {
+    const capRes = await apiGetSlotCapacities()
+    if (capRes && capRes.capacities) {
+      slotCapacities.value = capRes.capacities
+    }
+  } catch (err) {
+    console.warn('Failed to load slot capacities:', err)
+  }
+
+  // 2. Initialize preselected slots
   const booked = Array.isArray(props.alreadyBookedDates) ? props.alreadyBookedDates : []
   const initial = new Set(booked)
 
-  if (!isVipGuest.value) {
-    initial.delete('day-1')
-  }
-
-  // If new registration with no bookings yet, select first available non-passed day
+  // If new registration with no bookings yet, select first available non-passed & non-full slot
   if (initial.size === 0) {
-    if (isVipGuest.value && !isPassedDate(vipDates[0].date)) {
-      initial.add('day-1')
-    } else {
-      const avail = publicDates.find(d => !isPassedDate(d.date))
-      if (avail) initial.add(avail.id)
-    }
+    const avail = EVENT_ARRIVAL_SLOTS.find(s => {
+      const grp = dateGroups.find(g => g.slots.some(slot => slot.id === s.id))
+      return grp ? (!isPassedSlot(s, grp.dateIso) && !isSlotFull(s.id)) : true
+    })
+    if (avail) initial.add(avail.id)
+    else initial.add(EVENT_ARRIVAL_SLOTS[0].id)
   }
 
   selectedDates.value = Array.from(initial)
 })
 
-const toggleDate = (id) => {
-  // Disallow public guests picking day-1 or changing already booked dates
-  if (id === 'day-1' && !isVipGuest.value) return
+const toggleSlot = (id, groupId) => {
   if (props.alreadyBookedDates.includes(id)) return
+  if (isSlotFull(id)) {
+    showWarning('This time slot is fully booked (capacity 25/25).')
+    return
+  }
 
   const index = selectedDates.value.indexOf(id)
   if (index > -1) {
     selectedDates.value.splice(index, 1)
   } else {
+    // Quota check: max 2 slots per day
+    const daySlots = dateGroups.find(g => g.id === groupId)?.slots.map(s => s.id) || []
+    const countForThisDay = selectedDates.value.filter(sId => daySlots.includes(sId)).length
+
+    if (countForThisDay >= MAX_SLOTS_PER_DAY) {
+      showWarning(`You can select up to ${MAX_SLOTS_PER_DAY} time slots for this date.`)
+      return
+    }
+
     selectedDates.value.push(id)
   }
 }
@@ -197,74 +216,106 @@ const handleSubmit = () => {
   flex-direction: column;
 }
 
+/* Title Row (Figma Node 539:357) */
 .title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 34px;
 }
 
-.page-title {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 18px;
-  font-weight: 500;
-  color: #000000;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin: 0;
-  line-height: 32px;
-}
-
-.user-role-badge {
+.page-title-left {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 18px;
   font-weight: 300;
   color: #000000;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  margin: 0;
   line-height: 32px;
 }
 
-.dates-section {
-  margin-bottom: 32px;
-  display: flex;
-  flex-direction: column;
+.page-title-right {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 32px;
+  text-align: right;
 }
 
-.public-section {
-  margin-bottom: 24px;
+.date-groups-container {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+}
+
+.dates-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .section-header {
-  margin-bottom: 16px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
-.section-title {
+.section-date {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 300;
   color: #000000;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   margin: 0;
-  line-height: normal;
+  line-height: 24px;
 }
 
 .section-subtitle {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 300;
   color: #000000;
   margin: 0;
-  line-height: 20px;
+  line-height: 16px;
 }
 
 .options-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Quota Warning Banner */
+.quota-warning-banner {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #000000;
+  color: #ffffff;
+  padding: 12px 20px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 8px);
 }
 </style>
