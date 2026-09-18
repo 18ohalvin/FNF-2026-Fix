@@ -396,7 +396,7 @@ const handleDownloadPdf = async () => {
         ctx.textAlign = 'right'
         if (slot.sessionSub) {
           ctx.font = "400 14px 'Helvetica Neue', Arial, sans-serif"
-          ctx.fillText(slot.session || 'GUIDED SESSION LED', 354, curY + 20)
+          ctx.fillText(slot.session || 'GUIDED SESSION', 354, curY + 20)
           ctx.font = "300 12px 'Helvetica Neue', Arial, sans-serif"
           ctx.fillText(slot.sessionSub, 354, curY + 36)
         } else if (slot.session) {

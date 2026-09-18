@@ -241,7 +241,7 @@ class MailerService {
         if (slot.sessionSub) {
           doc.setFont('Helvetica', 'normal')
           doc.setFontSize(14)
-          doc.text(slot.session || 'GUIDED SESSION LED', 354, curY + 20, { align: 'right' })
+          doc.text(slot.session || 'GUIDED SESSION', 354, curY + 20, { align: 'right' })
           doc.setFontSize(12)
           doc.text(slot.sessionSub, 354, curY + 36, { align: 'right' })
         } else if (slot.session) {
