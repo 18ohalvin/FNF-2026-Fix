@@ -9,14 +9,8 @@ export const MAX_SLOTS_PER_DAY = 2
 
 export const EVENT_ARRIVAL_SLOTS = [
   // ----------------------------------------------------
-  // 19 September 2026 (Saturday) — entry opens 17:00 (5 PM)
+  // 19 September 2026 (Saturday) — public entry opens 20:00 (17:00-19:30 is VIP-only, not shown here)
   // ----------------------------------------------------
-  { id: '19sep-1700', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '17:00 - 17:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1730', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '17:30 - 18:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1800', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '18:00 - 18:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1830', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '18:30 - 19:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1900', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '19:00 - 19:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
-  { id: '19sep-1930', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '19:30 - 20:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
   { id: '19sep-2000', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '20:00 - 20:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
   { id: '19sep-2030', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '20:30 - 21:00', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
   { id: '19sep-2100', dateId: '19-sep', date: '19 September 2026', dateIso: '2026-09-19', time: '21:00 - 21:30', session: '', sessionSub: '', dayNum: '1', dayLabel: 'Day 1' },
