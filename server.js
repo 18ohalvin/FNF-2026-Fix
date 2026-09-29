@@ -37,8 +37,13 @@ app.use((req, res, next) => {
 // ----------------------------------------------------
 // Staff Auth: PIN login -> HMAC-signed stateless session token
 // ----------------------------------------------------
-const STAFF_STORE_ID = process.env.STAFF_STORE_ID || 'FNF2026'
-const STAFF_PIN = process.env.STAFF_PIN || '121314'
+const STAFF_STORE_ID = process.env.STAFF_STORE_ID
+const STAFF_PIN = process.env.STAFF_PIN
+
+if (!STAFF_STORE_ID || !STAFF_PIN) {
+  console.error('[FATAL] STAFF_STORE_ID and STAFF_PIN must be set — refusing to start with fallback credentials.')
+  process.exit(1)
+}
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const AUTH_SECRET = `${STAFF_PIN}_${STAFF_STORE_ID}_707_SALT_2026`
 
@@ -54,7 +59,9 @@ export function generateStaffToken() {
 
 export function verifyStaffToken(token) {
   if (!token || revokedTokens.has(token)) return false
-  if (token.startsWith('client_offline_session_')) return true
+  // A token counts only if this server signed it. An unsigned "offline"
+  // token used to be trusted on sight, which let anyone reach the guest
+  // database without logging in at all.
   const parts = token.split('.')
   if (parts.length !== 3) return false
   const [ts, rand, sig] = parts
@@ -82,11 +89,11 @@ app.post('/api/staff/login', (req, res) => {
   const rawId = String(storeId || '').trim().toUpperCase()
   const rawPin = String(pin || '').trim()
 
-  const validIds = [String(STAFF_STORE_ID || '').toUpperCase(), 'FNF2026', '707', 'ADMIN', 'FNF']
-  const validPins = [String(STAFF_PIN || '').trim(), '121314', '707']
-
-  const isIdMatch = validIds.includes(rawId)
-  const isPinMatch = validPins.includes(rawPin)
+  // Only the configured credentials are accepted. The extra hardcoded IDs and
+  // PINs that used to sit here ('707', '121314', ...) were public in this
+  // repository and bypassed STAFF_PIN entirely.
+  const isIdMatch = rawId === String(STAFF_STORE_ID).toUpperCase()
+  const isPinMatch = rawPin === String(STAFF_PIN).trim()
 
   if (!isIdMatch || !isPinMatch) {
     return res.status(401).json({ success: false, error: 'Invalid Store ID or PIN. Please check your credentials.' })

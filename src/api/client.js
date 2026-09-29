@@ -32,15 +32,9 @@ export async function apiStaffLogin(storeId, pin) {
   } catch (err) {
     console.warn('[API Client] Staff login network fallback triggered:', err)
 
-    // Fail-safe Offline Authentication for event door security / dashboard:
-    const validIds = ['FNF2026', '707', 'ADMIN', 'FNF']
-    const validPins = ['121314', '707']
-
-    if (validIds.includes(cleanId) && validPins.includes(cleanPin)) {
-      const offlineToken = `client_offline_session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-      return { success: true, token: offlineToken, offline: true }
-    }
-
+    // No offline sign-in: a token the server never issued cannot authorise
+    // anything, and minting one here only produced a session that failed on
+    // every subsequent request while appearing to have worked.
     return {
       success: false,
       error: err.data?.error || (err.message && !err.message.includes('Load failed') && !err.message.includes('fetch') ? err.message : 'Invalid Store ID or PIN. Please check your credentials.')
